@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <h1>Analyze News Authenticity</h1>
+
+    <form method="POST" action="/predict">
+        <textarea name="news" placeholder="Paste news article here..." required></textarea>
+        <button type="submit">Detect</button>
+    </form>
+
+    {% if prediction %}
+    <div class="result">
+        <h2>{{ prediction }}</h2>
+        <p>Confidence: {{ confidence }}%</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
