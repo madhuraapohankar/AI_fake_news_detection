@@ -6,17 +6,28 @@
 </head>
 <body>
 
+<div id="particles-js"></div>
+
 <nav class="navbar">
-    <div class="logo">AI Fake News Detector</div>
-    <div class="links">
-        <a href="/">Home</a>
-        <a href="/history">History</a>
+    <div class="nav-title">🧠 Fake News AI</div>
+
+    <div class="nav-right">
+        <button id="themeToggle">🌙</button>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/history">History</a>
+        </div>
     </div>
 </nav>
 
-<div class="container">
+<main class="main-container">
     {% block content %}{% endblock %}
-</div>
+</main>
 
+<!-- particles library -->
+<script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
 </body>
 </html>

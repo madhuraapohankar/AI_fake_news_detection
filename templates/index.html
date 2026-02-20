@@ -2,19 +2,50 @@
 {% block content %}
 
 <div class="card">
-    <h1>Analyze News Authenticity</h1>
 
-    <form method="POST" action="/predict">
-        <textarea name="news" placeholder="Paste news article here..." required></textarea>
-        <button type="submit">Detect</button>
+    <h1 class="title">🧠 Analyze News Authenticity</h1>
+    <p class="subtitle">
+        Paste any news article below and our AI will detect whether it is real or fake.
+    </p>
+
+    <form method="POST" action="/predict" onsubmit="showLoader()">
+        <textarea
+            name="news"
+            placeholder="Paste news article here..."
+            required
+        ></textarea>
+
+        <button type="submit" class="detect-btn">
+            🔍 Detect News
+        </button>
     </form>
 
+    <!-- Loader -->
+    <div id="loader" class="loader hidden"></div>
+
     {% if prediction %}
-    <div class="result">
-        <h2>{{ prediction }}</h2>
-        <p>Confidence: {{ confidence }}%</p>
+    <div class="result-box
+        {% if 'Fake' in prediction %} fake
+        {% elif 'Real' in prediction %} real
+        {% endif %}">
+
+        <h2 class="prediction-text">{{ prediction }}</h2>
+
+        <div class="confidence-wrapper">
+            <span>Confidence</span>
+
+            <div class="confidence-bar">
+                <div class="confidence-fill"
+                     style="width: {{ confidence|default(0) }}%">
+                </div>
+            </div>
+
+            <span class="confidence-value">{{ confidence }}%</span>
+        </div>
+
     </div>
     {% endif %}
+
 </div>
 
 {% endblock %}
