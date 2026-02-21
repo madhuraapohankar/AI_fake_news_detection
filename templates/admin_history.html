@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <div class="card">
+
+        <h2>👥 User Prediction History (Admin Only)</h2>
+
+        <table class="history-table">
+            <tr>
+                <th>ID</th>
+                <th>Prediction</th>
+                <th>Confidence</th>
+                <th>Date</th>
+            </tr>
+
+            {% for row in data %}
+            <tr>
+                <td>{{ row[0] }}</td>
+                <td>{{ row[2] }}</td>
+                <td>{{ row[3] }}%</td>
+                <td>{{ row[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+    </div>
+</div>
+
+{% endblock %} where to add this

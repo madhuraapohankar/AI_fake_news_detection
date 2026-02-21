@@ -1,24 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Prediction History</h1>
+<div class="container">
+    <div class="card history-card">
 
-<table>
-    <tr>
-        <th>ID</th>
-        <th>Prediction</th>
-        <th>Confidence</th>
-        <th>Date</th>
-    </tr>
+        <h2 class="history-title">📜 Prediction History</h2>
+        <p class="history-subtitle">
+            View all previously analyzed news results.
+        </p>
 
-    {% for row in data %}
-    <tr>
-        <td>{{ row[0] }}</td>
-        <td>{{ row[2] }}</td>
-        <td>{{ row[3] }}%</td>
-        <td>{{ row[4] }}</td>
-    </tr>
-    {% endfor %}
-</table>
+        {% if data and data|length > 0 %}
+
+        <div class="table-wrapper">
+            <table class="history-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Prediction</th>
+                        <th>Confidence</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in data %}
+                    <tr>
+                        <td>{{ row[0] }}</td>
+
+                        <td>
+                            <span class="prediction-badge 
+                                {% if row[2] == 'Real News' %}real-badge{% else %}fake-badge{% endif %}">
+                                {% if row[2] == 'Real News' %}Real{% else %}Fake{% endif %}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill"
+                                     style="width: {{ row[3] }}%;">
+                                </div>
+                            </div>
+                            <small>{{ row[3] }}%</small>
+                        </td>
+
+                        <td>{{ row[4] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+
+        {% else %}
+
+        <div class="empty-box">
+            No prediction history available yet.
+        </div>
+
+        {% endif %}
+
+    </div>
+</div>
 
 {% endblock %}

@@ -29,7 +29,6 @@
 
         <div class="nav-links">
 
-            <!-- LOGIN FIRST -->
             {% if not session.get("user") %}
                 <a href="/login">Login</a>
             {% endif %}
@@ -41,12 +40,11 @@
             <a href="/upload">Upload</a>
             <a href="/history">History</a>
 
-            <!-- ADMIN ONLY -->
+            <!-- ✅ ADMIN ONLY TAB -->
             {% if session.get("role") == "admin" %}
-                <a href="/admin-dashboard">Admin</a>
+                <a href="/admin-history">User History</a>
             {% endif %}
 
-            <!-- LOGOUT WHEN LOGGED IN -->
             {% if session.get("user") %}
                 <a href="/logout">Logout</a>
             {% endif %}
@@ -63,6 +61,12 @@
 <!-- particles library -->
 <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<!-- ================= FOOTER ================= -->
+ <footer class="footer">
+    <p>© 2026 AI Fake News Detection | Built by Archita,Madhura & Pranay</p>
+</footer>
+
 
 </body>
 </html>

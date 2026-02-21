@@ -2,84 +2,148 @@
 {% block content %}
 
 <div class="container">
-    <div class="card auth-container">
 
-        <h2 style="text-align:center; margin-bottom:25px;">
-            🔐 Authentication Portal
-        </h2>
+    <!-- ================= STEP 1: ROLE SELECTION ================= -->
+    <div class="card auth-step" id="roleSelection">
 
-        <!-- ===== MAIN ROLE TABS ===== -->
-        <div class="tabs" style="text-align:center; margin-bottom:20px;">
-            <button onclick="showRole('userRole')" id="userRoleBtn">User</button>
-            <button onclick="showRole('adminRole')" id="adminRoleBtn">Admin</button>
+        <h2 class="auth-title">🔐 Welcome</h2>
+        <p class="auth-subtitle">Select your role to continue</p>
+
+        <div class="role-options">
+            <button type="button" onclick="selectRole('user')">
+                👤 Continue as User
+            </button>
+
+            <button type="button" onclick="selectRole('admin')">
+                🛠 Continue as Admin
+            </button>
         </div>
 
-        <!-- ================= USER SECTION ================= -->
-        <div id="userRole">
+    </div>
 
-            <!-- USER INNER TABS -->
-            <div class="tabs" style="text-align:center; margin-bottom:15px;">
-                <button onclick="showUserTab('login')">Login</button>
-                <button onclick="showUserTab('register')">Register</button>
-            </div>
 
-            <!-- USER LOGIN -->
-            <div id="login" class="tab-content">
-                <form method="POST" action="/login">
-                    <input type="hidden" name="role" value="user">
+    <!-- ================= USER AUTH ================= -->
+    <div class="card auth-step hidden" id="userAuth">
 
-                    <input type="email" name="email" placeholder="User Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+        <button class="back-btn" onclick="goBack()">← Back</button>
 
-                    <button type="submit">User Login</button>
-                </form>
-            </div>
+        <h2>User Portal</h2>
 
-            <!-- USER REGISTER -->
-            <div id="register" class="tab-content" style="display:none;">
-                <form method="POST" action="/register">
-                    <input type="text" name="name" placeholder="Full Name" required>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+        <div class="inner-tabs">
+            <button type="button" id="userLoginTab" class="active-tab"
+                    onclick="showUserTab('userLogin')">Login</button>
 
-                    <button type="submit">Register</button>
-                </form>
-            </div>
-
+            <button type="button" id="userRegisterTab"
+                    onclick="showUserTab('userRegister')">Register</button>
         </div>
 
-        <!-- ================= ADMIN SECTION ================= -->
-        <div id="adminRole" style="display:none;">
+        <!-- USER LOGIN -->
+        <div id="userLogin">
             <form method="POST" action="/login">
+                <input type="hidden" name="role" value="user">
 
-                <input type="hidden" name="role" value="admin">
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
 
-                <input type="email" name="email" placeholder="Admin Email" required>
-                <input type="password" name="password" placeholder="Admin Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
 
-                <button type="submit">Admin Login</button>
+        <!-- USER REGISTER -->
+        <div id="userRegister" class="hidden">
+            <form method="POST" action="/register">
+                <!-- ✅ FIX ADDED -->
+                <input type="hidden" name="role" value="user">
+
+                <input type="text" name="name" placeholder="Full Name" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+
+                <button type="submit">Register</button>
             </form>
         </div>
 
     </div>
+
+
+    <!-- ================= ADMIN AUTH ================= -->
+    <div class="card auth-step hidden" id="adminAuth">
+
+        <button class="back-btn" onclick="goBack()">← Back</button>
+
+        <h2>Admin Portal</h2>
+
+        <div class="inner-tabs">
+            <button type="button" id="adminLoginTab" class="active-tab"
+                    onclick="showAdminTab('adminLogin')">Login</button>
+
+            <button type="button" id="adminRegisterTab"
+                    onclick="showAdminTab('adminRegister')">Register</button>
+        </div>
+
+        <!-- ADMIN LOGIN -->
+        <div id="adminLogin">
+            <form method="POST" action="/login">
+                <input type="hidden" name="role" value="admin">
+
+                <input type="email" name="email" placeholder="Admin Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <!-- ADMIN REGISTER -->
+        <div id="adminRegister" class="hidden">
+            <form method="POST" action="/register">
+                <!-- 🔥 THIS WAS MISSING -->
+                <input type="hidden" name="role" value="admin">
+
+                <input type="text" name="name" placeholder="Admin Name" required>
+                <input type="email" name="email" placeholder="Admin Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+
+                <button type="submit">Register</button>
+            </form>
+        </div>
+
+    </div>
+
 </div>
 
+
 <script>
-/* ===== ROLE SWITCH ===== */
-function showRole(roleId) {
-    document.getElementById("userRole").style.display = "none";
-    document.getElementById("adminRole").style.display = "none";
 
-    document.getElementById(roleId).style.display = "block";
+function selectRole(role) {
+    document.getElementById("roleSelection").classList.add("hidden");
+
+    if (role === "user") {
+        document.getElementById("userAuth").classList.remove("hidden");
+    } else {
+        document.getElementById("adminAuth").classList.remove("hidden");
+    }
 }
 
-/* ===== USER LOGIN/REGISTER SWITCH ===== */
+function goBack() {
+    document.getElementById("roleSelection").classList.remove("hidden");
+    document.getElementById("userAuth").classList.add("hidden");
+    document.getElementById("adminAuth").classList.add("hidden");
+}
+
 function showUserTab(tab) {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("register").style.display = "none";
+    document.getElementById("userLogin").classList.add("hidden");
+    document.getElementById("userRegister").classList.add("hidden");
 
-    document.getElementById(tab).style.display = "block";
+    document.getElementById(tab).classList.remove("hidden");
 }
+
+function showAdminTab(tab) {
+    document.getElementById("adminLogin").classList.add("hidden");
+    document.getElementById("adminRegister").classList.add("hidden");
+
+    document.getElementById(tab).classList.remove("hidden");
+}
+
 </script>
 
 {% endblock %}

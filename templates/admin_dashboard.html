@@ -3,14 +3,19 @@
 
 <div class="container">
     <div class="card">
-        <h2>🛠️ Admin Dashboard</h2>
-        <p>Welcome Admin! Here you can manage the system.</p>
 
-        <ul>
-            <li>📊 View all predictions</li>
-            <li>👥 Manage users</li>
-            <li>📰 Monitor news uploads</li>
-        </ul>
+        <!-- ADMIN NAV BAR -->
+        <div class="admin-nav">
+            <a href="/admin-dashboard">🆕 New</a>
+            <a href="/admin-history">📜 History</a>
+            <span class="admin-user">
+                👤 {{ session.get("user") }} ({{ session.get("email") }})
+            </span>
+        </div>
+
+        <h2>🛠 Admin Dashboard</h2>
+        <p>Welcome, {{ session.get("user") }}!</p>
+
     </div>
 </div>
 
