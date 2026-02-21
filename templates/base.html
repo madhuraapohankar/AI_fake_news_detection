@@ -1,25 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>AI Fake News Detection</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Main CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
+<!-- Particles Background -->
 <div id="particles-js"></div>
 
+<!-- ================= NAVBAR ================= -->
 <nav class="navbar">
     <div class="nav-title">🧠 Fake News AI</div>
 
     <div class="nav-right">
+
+        <!-- Theme Toggle -->
         <button id="themeToggle">🌙</button>
+
         <div class="nav-links">
+
+            <!-- LOGIN FIRST -->
+            {% if not session.get("user") %}
+                <a href="/login">Login</a>
+            {% endif %}
+
             <a href="/">Home</a>
+            <a href="/live-news">Live News</a>
+            <a href="/video-news">Video News</a>
+            <a href="/kids-news">Kids News</a>
+            <a href="/upload">Upload</a>
             <a href="/history">History</a>
+
+            <!-- ADMIN ONLY -->
+            {% if session.get("role") == "admin" %}
+                <a href="/admin-dashboard">Admin</a>
+            {% endif %}
+
+            <!-- LOGOUT WHEN LOGGED IN -->
+            {% if session.get("user") %}
+                <a href="/logout">Logout</a>
+            {% endif %}
+
         </div>
     </div>
 </nav>
 
+<!-- ================= MAIN CONTENT ================= -->
 <main class="main-container">
     {% block content %}{% endblock %}
 </main>
@@ -28,6 +64,5 @@
 <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 
-</body>
 </body>
 </html>

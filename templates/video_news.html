@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Analyze Video News</h2>
+
+<form method="POST">
+    <input type="url" name="video_url" placeholder="Paste video URL..." required>
+    <button type="submit">Analyze</button>
+</form>
+
+{% if url %}
+<p>Video submitted: {{ url }}</p>
+{% endif %}
+
+{% endblock %}

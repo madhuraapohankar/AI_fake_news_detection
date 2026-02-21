@@ -1,77 +1,155 @@
+/* ================= UNIVERSAL TEXT SAFETY ================= */
+* {
+    color: inherit;
+    box-sizing: border-box;
+}
+
+/* ================= GLOBAL ================= */
 body {
     margin: 0;
     font-family: 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #141E30, #243B55);
-    color: white;
+    color: #f9fafb; /* soft white, not harsh */
 }
 
+/* ================= PARTICLES BACKGROUND ================= */
+#particles-js {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    top: 0;
+    left: 0;
+}
+
+/* ================= NAVBAR ================= */
 .navbar {
     display: flex;
     justify-content: space-between;
     padding: 20px 40px;
-    background: rgba(0,0,0,0.4);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
 }
 
 .navbar a {
-    color: white;
+    color: #e5e7eb;
     text-decoration: none;
     margin-left: 20px;
+    font-weight: 500;
+    transition: 0.3s;
 }
 
+.navbar a:hover {
+    color: #60a5fa;
+}
+
+/* right side navbar */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+/* ================= CONTAINER ================= */
 .container {
     width: 60%;
     margin: 60px auto;
 }
 
+/* ================= CARD ================= */
 .card {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.08);
     padding: 40px;
-    border-radius: 15px;
-    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    color: #f9fafb;
 }
 
-textarea {
+/* ================= INPUTS ================= */
+input, textarea, select {
     width: 100%;
-    height: 160px;
-    padding: 15px;
+    padding: 12px;
     border-radius: 10px;
     border: none;
-    font-size: 16px;
+    font-size: 15px;
+    margin-top: 10px;
+    background: rgba(255,255,255,0.12);
+    color: #f9fafb;
+    outline: none;
 }
 
+/* placeholder visibility */
+input::placeholder,
+textarea::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+/* textarea height */
+textarea {
+    height: 160px;
+}
+
+/* ================= BUTTON ================= */
 button {
     margin-top: 20px;
     padding: 12px 35px;
     border: none;
-    border-radius: 8px;
-    background: #00c6ff;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #22c55e, #06b6d4);
     color: white;
     font-size: 16px;
     cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 8px 25px rgba(6,182,212,0.35);
 }
 
 button:hover {
-    background: #0072ff;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(6,182,212,0.55);
 }
 
+/* ================= RESULT BOX ================= */
 .result {
     margin-top: 25px;
     padding: 20px;
     background: rgba(0,0,0,0.5);
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
+/* Real/Fake glow */
+.result-box.real {
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.35);
+}
+
+.result-box.fake {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.35);
+}
+
+/* ================= TABLE ================= */
 table {
     width: 100%;
     margin-top: 30px;
     border-collapse: collapse;
+    color: #f9fafb;
 }
 
 th, td {
     padding: 12px;
-    border: 1px solid rgba(255,255,255,0.3);
+    border: 1px solid rgba(255,255,255,0.25);
+    text-align: left;
 }
-/* ===== PAGE BACKGROUND ===== */
+
+th {
+    background: rgba(255,255,255,0.15);
+}
+
+/* ================= FLOATING BLUR BACKGROUND ================= */
 .page-bg {
     min-height: 100vh;
     position: relative;
@@ -79,7 +157,6 @@ th, td {
     overflow: hidden;
 }
 
-/* Floating blur orbs */
 .bg-blur {
     position: absolute;
     border-radius: 50%;
@@ -104,93 +181,7 @@ th, td {
     right: 5%;
 }
 
-/* Ensure content above background */
-.navbar,
-.main-container {
-    position: relative;
-    z-index: 2;
-}
-
-/* ===== NAVBAR UPGRADE ===== */
-.navbar {
-    backdrop-filter: blur(10px);
-    background: rgba(15, 23, 42, 0.6);
-    color: white;
-}
-
-.nav-title {
-    color: #f9fafb;
-}
-
-.nav-links a {
-    color: #e5e7eb;
-}
-
-.nav-links a:hover {
-    color: #60a5fa;
-}
-
-/* ===== MAIN CENTERING ===== */
-.main-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 60px 20px;
-}
-
-/* ===== CARD PREMIUM ===== */
-.card {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(18px);
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow:
-        0 20px 60px rgba(0,0,0,0.35),
-        inset 0 1px 0 rgba(255,255,255,0.1);
-    color: white;
-}
-
-/* textarea better contrast */
-textarea {
-    background: rgba(255,255,255,0.9);
-}
-
-/* ===== BUTTON GLOW ===== */
-.detect-btn {
-    background: linear-gradient(135deg, #22c55e, #06b6d4);
-    box-shadow: 0 8px 25px rgba(6,182,212,0.35);
-}
-
-.detect-btn:hover {
-    box-shadow: 0 12px 35px rgba(6,182,212,0.55);
-}
-
-/* ===== RESULT GLOW ===== */
-.result-box.real {
-    background: rgba(34,197,94,0.15);
-    border: 1px solid rgba(34,197,94,0.35);
-}
-
-.result-box.fake {
-    background: rgba(239,68,68,0.15);
-    border: 1px solid rgba(239,68,68,0.35);
-}
-/* ===== PARTICLES ===== */
-#particles-js {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    top: 0;
-    left: 0;
-}
-
-/* ===== THEME TOGGLE ===== */
-.nav-right {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-}
-
+/* ================= THEME TOGGLE ================= */
 #themeToggle {
     background: rgba(255,255,255,0.12);
     border: none;
@@ -199,20 +190,33 @@ textarea {
     cursor: pointer;
     font-size: 16px;
     backdrop-filter: blur(8px);
+    color: #f9fafb;
 }
 
-/* ===== LIGHT MODE ===== */
+/* ================= LIGHT MODE ================= */
 body.light-mode {
     background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-    color: #111827;
+    color: #1e293b; /* soft dark */
 }
 
 body.light-mode .card {
-    background: rgba(255,255,255,0.85);
-    color: #111827;
+    background: rgba(255,255,255,0.92);
+    color: #1e293b;
 }
 
-/* ===== LOADER ===== */
+body.light-mode input,
+body.light-mode textarea,
+body.light-mode select {
+    background: rgba(0,0,0,0.05);
+    color: #1e293b;
+}
+
+body.light-mode input::placeholder,
+body.light-mode textarea::placeholder {
+    color: rgba(0,0,0,0.45);
+}
+
+/* ================= LOADER ================= */
 .loader {
     margin: 25px auto;
     border: 4px solid rgba(255,255,255,0.2);
@@ -229,4 +233,48 @@ body.light-mode .card {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+/* ================= LIVE CATEGORY STYLE ================= */
+select[name="category"] {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #f9fafb;                 /* outside text */
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 10px;
+    padding: 12px;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+/* dropdown options (FIXED — separate rule) */
+select[name="category"] option {
+    color: #111827;     /* readable in dropdown */
+    background: #ffffff;
+}
+
+/* dropdown hover */
+select[name="category"]:hover {
+    border-color: #60a5fa;
+}
+
+/* dropdown focus glow */
+select[name="category"]:focus {
+    outline: none;
+    border-color: #22c55e;
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.25);
+}
+/* smooth dropdown arrow look */
+select[name="category"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+/* ================= KIDS SUBTITLE FIX ================= */
+.kids-subtitle {
+    color: #dbeafe;
+    font-size: 18px;
+    font-weight: 500;
+    text-shadow: 0 0 8px rgba(96,165,250,0.35);
 }

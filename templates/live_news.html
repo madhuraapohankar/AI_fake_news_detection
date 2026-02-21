@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<label>Select Category</label>
+
+<form method="POST" action="/predict">
+    <select name="category" required>
+        <option value="">-- Select Category --</option>
+        <option>National</option>
+        <option>International</option>
+        <option>Political</option>
+        <option>Sports</option>
+        <option>Bollywood</option>
+        <option>Global</option>
+    </select>
+
+    <textarea name="news_text" placeholder="Paste news here..." required></textarea>
+
+    <button type="submit">Detect News</button>
+</form>
+
+{% endblock %}

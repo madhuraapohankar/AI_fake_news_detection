@@ -1,18 +1,40 @@
-# updated by archita
-from flask import Flask, render_template, request
+# updated by archita (cleaned & upgraded)
+
+from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import pickle
 import numpy as np
 from datetime import datetime
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
 # ==============================
-# LOAD TRAINED PIPELINE MODEL
+# LOAD TRAINED MODEL
 # ==============================
 
-model = pickle.load(open("model/model.pkl", "rb"))
+try:
+    model = pickle.load(open("model/model.pkl", "rb"))
+except Exception as e:
+    print("Model load error:", e)
+    model = None
+
+# ==============================
+# UPLOAD CONFIG (FIXED POSITION)
+# ==============================
+
+UPLOAD_FOLDER = "static/uploads"
+ALLOWED_EXTENSIONS = {"pdf", "txt", "png", "jpg", "jpeg", "mp4"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # ==============================
 # DATABASE INITIALIZATION
@@ -36,32 +58,134 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 init_db()
 
 # ==============================
-# HOME ROUTE
+# HOME
 # ==============================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
 # ==============================
-# PREDICT ROUTE
+# LOGIN / REGISTER
+# ==============================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    return render_template("login.html")
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    return redirect(url_for("login"))
+
+
+# ==============================
+# LIVE NEWS
+# ==============================
+
+@app.route("/live-news")
+def live_news():
+    return render_template("live_news.html")
+
+
+# ==============================
+# VIDEO NEWS
+# ==============================
+
+@app.route("/video-news", methods=["GET", "POST"])
+def video_news():
+    if request.method == "POST":
+        url = request.form.get("video_url")
+        return render_template("video_news.html", url=url)
+
+    return render_template("video_news.html")
+
+
+# ==============================
+# FILE UPLOAD
+# ==============================
+
+@app.route("/upload", methods=["GET", "POST"])
+def upload_file():
+    message = ""
+
+    if request.method == "POST":
+        file = request.files.get("file")
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(filepath)
+            message = "✅ File uploaded successfully"
+        else:
+            message = "❌ Invalid file type"
+
+    return render_template("upload.html", message=message)
+
+# ==============================
+# DASHBOARD
+# ==============================
+
+@app.route("/admin-dashboard")
+def admin_dashboard():
+    if session.get("role") != "admin":
+        return redirect(url_for("login"))
+    return render_template("admin_dashboard.html")
+    
+# ==============================
+# KIDS NEWS
+# ==============================
+
+@app.route("/kids-news")
+def kids_news():
+    return render_template("kids_news.html")
+
+
+# ==============================
+# PAST NEWS
+# ==============================
+@app.route("/past-news")
+def past_news():
+    conn = sqlite3.connect("database/fake_news.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM history ORDER BY id DESC")
+    data = cursor.fetchall()
+
+    conn.close()
+
+    return render_template("past_news.html", data=data)
+
+# ==============================
+# PREDICT
 # ==============================
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    text = request.form["news"]
+    text = request.form.get("news")
+
+    if not text:
+        return redirect(url_for("home"))
+
+    if model is None:
+        return render_template(
+            "index.html",
+            prediction="Model not loaded",
+            confidence=0
+        )
 
     prediction = model.predict([text])[0]
     probabilities = model.predict_proba([text])[0]
-
     confidence = round(np.max(probabilities) * 100, 2)
 
     result = "Real News" if prediction == 1 else "Fake News"
 
-    # Store prediction in database
+    # Save to DB
     conn = sqlite3.connect("database/fake_news.db")
     cursor = conn.cursor()
 
@@ -84,8 +208,9 @@ def predict():
         confidence=confidence
     )
 
+
 # ==============================
-# HISTORY ROUTE
+# HISTORY
 # ==============================
 
 @app.route("/history")
@@ -100,6 +225,9 @@ def history():
 
     return render_template("history.html", data=data)
 
+
+# ==============================
+# RUN
 # ==============================
 
 if __name__ == "__main__":
