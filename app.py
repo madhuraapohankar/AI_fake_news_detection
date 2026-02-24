@@ -1,10 +1,10 @@
-# updated by archita (FINAL ULTRA STABLE + PREVIEW)
+# updated by archita (FINAL ULTRA STABLE + AUTH UPGRADE)
 
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import pickle
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -17,6 +17,7 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # ==============================
 # LOGIN REQUIRED DECORATOR
@@ -102,6 +103,8 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
+        role = request.form.get("role", "user").strip().lower()
+        remember = request.form.get("remember")
 
         if not email or not password:
             return render_template("login.html", error="All fields required")
@@ -109,6 +112,7 @@ def login():
         conn = sqlite3.connect("database/fake_news.db")
         cursor = conn.cursor()
 
+        # 🔥 ONLY CHECK EMAIL + PASSWORD
         cursor.execute("""
             SELECT id, name, email, role FROM users
             WHERE email=? AND password=?
@@ -118,12 +122,21 @@ def login():
         conn.close()
 
         if user:
+            db_role = (user[3] or "user").lower()
+
+            # 🔥 Compare role safely
+            if db_role != role:
+                return render_template("login.html", error="Wrong role selected")
+
             session.clear()
             session["user"] = user[1]
             session["email"] = user[2]
-            session["role"] = (user[3] or "user").lower()
+            session["role"] = db_role
 
-            if session["role"] == "admin":
+            if remember:
+                session.permanent = True
+
+            if db_role == "admin":
                 return redirect(url_for("admin_dashboard"))
 
             return redirect(url_for("home"))
@@ -131,7 +144,6 @@ def login():
         return render_template("login.html", error="Invalid credentials")
 
     return render_template("login.html")
-
 # ==============================
 # REGISTER
 # ==============================
@@ -155,11 +167,27 @@ def register():
             VALUES (?, ?, ?, ?)
         """, (name, email, password, role))
         conn.commit()
+
     except Exception as e:
         print("Registration error:", e)
 
     conn.close()
     return redirect(url_for("login"))
+
+# ==============================
+# FORGOT PASSWORD (NEW)
+# ==============================
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    message = ""
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+
+        if email:
+            message = "If this email exists, reset instructions would be sent."
+
+    return render_template("forgot_password.html", message=message)
 
 # ==============================
 # LOGOUT
@@ -203,7 +231,7 @@ def kids_news():
     return render_template("kids_news.html")
 
 # ==============================
-# ✅ ENHANCED UPLOAD WITH PREVIEW
+# UPLOAD WITH PREVIEW
 # ==============================
 @app.route("/upload", methods=["GET", "POST"])
 @login_required
@@ -221,10 +249,7 @@ def upload_file():
         else:
             message = "❌ Invalid file type"
 
-    # 🔥 get all uploaded files for preview
-    uploaded_files = []
-    for fname in os.listdir(app.config["UPLOAD_FOLDER"]):
-        uploaded_files.append(fname)
+    uploaded_files = os.listdir(app.config["UPLOAD_FOLDER"])
 
     return render_template(
         "upload.html",
@@ -232,6 +257,9 @@ def upload_file():
         files=uploaded_files
     )
 
+# ==============================
+# HISTORY
+# ==============================
 @app.route("/history")
 @login_required
 def history():
