@@ -1,4 +1,4 @@
-# updated by archita (ULTRA STABLE VERSION)
+# updated by archita (FINAL ULTRA STABLE + PREVIEW)
 
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
@@ -11,16 +11,16 @@ from functools import wraps
 
 app = Flask(__name__)
 
-# 🔐 VERY IMPORTANT FOR SESSION STABILITY
+# ==============================
+# SESSION SECURITY
+# ==============================
 app.secret_key = "supersecretkey"
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 
-
 # ==============================
 # LOGIN REQUIRED DECORATOR
 # ==============================
-
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -29,11 +29,9 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
 # ==============================
 # LOAD MODEL
 # ==============================
-
 try:
     model = pickle.load(open("model/model.pkl", "rb"))
     vectorizer = pickle.load(open("model/vectorizer.pkl", "rb"))
@@ -42,11 +40,9 @@ except Exception as e:
     model = None
     vectorizer = None
 
-
 # ==============================
 # UPLOAD CONFIG
 # ==============================
-
 UPLOAD_FOLDER = "static/uploads"
 ALLOWED_EXTENSIONS = {"pdf", "txt", "png", "jpg", "jpeg", "mp4"}
 
@@ -56,11 +52,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 # ==============================
 # DATABASE INIT
 # ==============================
-
 def init_db():
     os.makedirs("database", exist_ok=True)
     conn = sqlite3.connect("database/fake_news.db")
@@ -91,34 +85,17 @@ def init_db():
 
 init_db()
 
-
-# ==============================
-# SESSION DEBUG ROUTE (REMOVE LATER)
-# ==============================
-
-@app.route("/check-session")
-def check_session():
-    return f"""
-    User: {session.get('user')} <br>
-    Email: {session.get('email')} <br>
-    Role: {session.get('role')}
-    """
-
-
 # ==============================
 # HOME
 # ==============================
-
 @app.route("/")
 @login_required
 def home():
     return render_template("index.html")
 
-
 # ==============================
 # LOGIN
 # ==============================
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -141,28 +118,23 @@ def login():
         conn.close()
 
         if user:
-            session.clear()  # 🔥 Prevent session corruption
-
+            session.clear()
             session["user"] = user[1]
             session["email"] = user[2]
             session["role"] = (user[3] or "user").lower()
 
-            print("SESSION SAVED:", dict(session))
-
             if session["role"] == "admin":
                 return redirect(url_for("admin_dashboard"))
-            else:
-                return redirect(url_for("home"))
+
+            return redirect(url_for("home"))
 
         return render_template("login.html", error="Invalid credentials")
 
     return render_template("login.html")
 
-
 # ==============================
 # REGISTER
 # ==============================
-
 @app.route("/register", methods=["POST"])
 def register():
 
@@ -189,64 +161,33 @@ def register():
     conn.close()
     return redirect(url_for("login"))
 
-
 # ==============================
 # LOGOUT
 # ==============================
-
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
 # ==============================
 # ADMIN DASHBOARD
 # ==============================
-
 @app.route("/admin-dashboard")
 @login_required
 def admin_dashboard():
-
-    print("ADMIN SESSION:", dict(session))
 
     if session.get("role") != "admin":
         return redirect(url_for("home"))
 
     return render_template("admin_dashboard.html")
 
-
-# ==============================
-# ADMIN HISTORY
-# ==============================
-
-@app.route("/admin-history")
-@login_required
-def admin_history():
-
-    if session.get("role") != "admin":
-        return redirect(url_for("home"))
-
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM history ORDER BY id DESC")
-    data = cursor.fetchall()
-
-    conn.close()
-
-    return render_template("admin_history.html", data=data)
-
-
 # ==============================
 # USER ROUTES
 # ==============================
-
 @app.route("/live-news")
 @login_required
 def live_news():
     return render_template("live_news.html")
-
 
 @app.route("/video-news", methods=["GET", "POST"])
 @login_required
@@ -256,12 +197,40 @@ def video_news():
         return render_template("video_news.html", url=url)
     return render_template("video_news.html")
 
-
 @app.route("/kids-news")
 @login_required
 def kids_news():
     return render_template("kids_news.html")
 
+# ==============================
+# ✅ ENHANCED UPLOAD WITH PREVIEW
+# ==============================
+@app.route("/upload", methods=["GET", "POST"])
+@login_required
+def upload_file():
+    message = ""
+
+    if request.method == "POST":
+        file = request.files.get("file")
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(filepath)
+            message = "✅ File uploaded successfully"
+        else:
+            message = "❌ Invalid file type"
+
+    # 🔥 get all uploaded files for preview
+    uploaded_files = []
+    for fname in os.listdir(app.config["UPLOAD_FOLDER"]):
+        uploaded_files.append(fname)
+
+    return render_template(
+        "upload.html",
+        message=message,
+        files=uploaded_files
+    )
 
 @app.route("/history")
 @login_required
@@ -277,11 +246,9 @@ def history():
 
     return render_template("history.html", data=data)
 
-
 # ==============================
 # PREDICT
 # ==============================
-
 @app.route("/predict", methods=["POST"])
 @login_required
 def predict():
@@ -292,9 +259,11 @@ def predict():
         return redirect(url_for("home"))
 
     if model is None or vectorizer is None:
-        return render_template("index.html",
-                               prediction="Model not loaded",
-                               confidence=0)
+        return render_template(
+            "index.html",
+            prediction="Model not loaded",
+            confidence=0
+        )
 
     text_vector = vectorizer.transform([text.lower()])
     prediction = model.predict(text_vector)[0]
@@ -324,14 +293,14 @@ def predict():
     conn.commit()
     conn.close()
 
-    return render_template("index.html",
-                           prediction=result,
-                           confidence=confidence)
-
+    return render_template(
+        "index.html",
+        prediction=result,
+        confidence=confidence
+    )
 
 # ==============================
 # RUN
 # ==============================
-
 if __name__ == "__main__":
     app.run(debug=True)

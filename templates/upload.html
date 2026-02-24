@@ -1,11 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Upload News File</h2>
+<div class="container">
 
-<form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload</button>
-</form>
+    <div class="card">
+        <h2 style="text-align:center;">📤 Upload News Files</h2>
+
+        {% if message %}
+            <p style="text-align:center;">{{ message }}</p>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Upload File</button>
+        </form>
+    </div>
+
+    <!-- 🔥 FILE PREVIEW GRID -->
+    {% if files %}
+    <div class="card" style="margin-top:30px;">
+        <h3 style="text-align:center;">📁 Uploaded Files</h3>
+
+        <div class="file-grid">
+            {% for file in files %}
+            <div class="file-card">
+
+                {% set ext = file.split('.')[-1].lower() %}
+
+                <!-- IMAGE -->
+                {% if ext in ['png','jpg','jpeg'] %}
+                    <img src="{{ url_for('static', filename='uploads/' + file) }}" class="file-img">
+
+                <!-- VIDEO -->
+                {% elif ext == 'mp4' %}
+                    <video class="file-video" controls>
+                        <source src="{{ url_for('static', filename='uploads/' + file) }}" type="video/mp4">
+                    </video>
+
+                <!-- PDF -->
+                {% elif ext == 'pdf' %}
+                    <div class="file-icon">📄 PDF</div>
+
+                <!-- TEXT -->
+                {% elif ext == 'txt' %}
+                    <div class="file-icon">📝 TXT</div>
+
+                {% else %}
+                    <div class="file-icon">📁 FILE</div>
+                {% endif %}
+
+                <p class="file-name">{{ file }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
 
 {% endblock %}

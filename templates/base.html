@@ -25,11 +25,14 @@
     <div class="nav-right">
 
         <!-- Theme Toggle -->
-        <button id="themeToggle">🌙</button>
+        <button id="themeToggle" type="button">🌙</button>
 
         <div class="nav-links">
 
-            {% if not session.get("user") %}
+            <!-- 🔥 AUTH BUTTON (CLEAN LOGIC) -->
+            {% if session.get("user") %}
+                <a href="/logout">Logout</a>
+            {% else %}
                 <a href="/login">Login</a>
             {% endif %}
 
@@ -40,13 +43,9 @@
             <a href="/upload">Upload</a>
             <a href="/history">History</a>
 
-            <!-- ✅ ADMIN ONLY TAB -->
+            <!-- ADMIN ONLY -->
             {% if session.get("role") == "admin" %}
                 <a href="/admin-history">User History</a>
-            {% endif %}
-
-            {% if session.get("user") %}
-                <a href="/logout">Logout</a>
             {% endif %}
 
         </div>
@@ -58,15 +57,18 @@
     {% block content %}{% endblock %}
 </main>
 
-<!-- particles library -->
-<script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
-<script src="{{ url_for('static', filename='script.js') }}"></script>
-
 <!-- ================= FOOTER ================= -->
- <footer class="footer">
-    <p>© 2026 AI Fake News Detection | Built by Archita,Madhura & Pranay</p>
+<footer class="footer">
+    <p>© 2026 AI Fake News Detection | Built by Archita, Madhura & Pranay</p>
 </footer>
 
+<!-- ================= SCRIPTS ================= -->
+
+<!-- particles library -->
+<script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+
+<!-- Main Script -->
+<script src="{{ url_for('static', filename='script.js') }}" defer></script>
 
 </body>
 </html>

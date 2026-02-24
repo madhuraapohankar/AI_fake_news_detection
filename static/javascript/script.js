@@ -1,25 +1,17 @@
-/* ===== DARK / LIGHT TOGGLE ===== */
-const toggleBtn = document.getElementById("themeToggle");
+// ================= THEME TOGGLE =================
+document.addEventListener("DOMContentLoaded", function () {
+    const toggleBtn = document.getElementById("themeToggle");
 
-toggleBtn.addEventListener("click", () => {
-    document.body.classList.toggle("light-mode");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", function () {
+            document.body.classList.toggle("light-mode");
 
-    toggleBtn.textContent =
-        document.body.classList.contains("light-mode") ? "☀️" : "🌙";
-});
-
-/* ===== PARTICLES BACKGROUND ===== */
-particlesJS("particles-js", {
-    particles: {
-        number: { value: 55 },
-        color: { value: "#60a5fa" },
-        opacity: { value: 0.35 },
-        size: { value: 3 },
-        move: { speed: 1.2 }
+            // optional: change icon
+            if (document.body.classList.contains("light-mode")) {
+                toggleBtn.textContent = "☀️";
+            } else {
+                toggleBtn.textContent = "🌙";
+            }
+        });
     }
 });
-/* ===== SHOW LOADER ===== */
-function showLoader() {
-    const loader = document.getElementById("loader");
-    if (loader) loader.classList.remove("hidden");
-}
