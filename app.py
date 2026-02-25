@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 import os
 from werkzeug.utils import secure_filename
 from functools import wraps
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Mail, Message
+from authlib.integrations.flask_client import OAuth
 
 app = Flask(__name__)
 
@@ -18,6 +21,71 @@ app.secret_key = "supersecretkey"
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
+# ==============================
+# PASSWORD RESET CONFIG
+# ==============================
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'ramchandaniarchita2@gmail.com'
+app.config['MAIL_PASSWORD'] = 'vwit wmuf amah dezw'
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.secret_key)
+
+# ==============================
+# GOOGLE OAUTH
+# ==============================
+oauth = OAuth(app)
+
+google = oauth.register(
+    name='google',
+    client_id="your-real-client-id",
+    client_secret="your-real-secret",
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'},
+)
+
+@app.route("/google-login")
+def google_login():
+    redirect_uri = url_for("google_authorize", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route("/authorize")
+def google_authorize():
+    token = google.authorize_access_token()
+
+    # This automatically contains user info when using OpenID
+    user_info = token.get("userinfo")
+
+    email = user_info["email"]
+    name = user_info.get("name", "Google User")
+
+    conn = sqlite3.connect("database/fake_news.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, role FROM users WHERE email=?", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.execute("""
+            INSERT INTO users (name, email, password, role)
+            VALUES (?, ?, ?, ?)
+        """, (name, email, "google_auth", "user"))
+        conn.commit()
+        role = "user"
+    else:
+        role = user[1] or "user"
+
+    conn.close()
+
+    session.clear()
+    session["user"] = name
+    session["email"] = email
+    session["role"] = role
+
+    return redirect(url_for("home"))
 
 # ==============================
 # LOGIN REQUIRED DECORATOR
@@ -135,6 +203,9 @@ def login():
 
             if remember:
                 session.permanent = True
+                app.permanent_session_lifetime = timedelta(days=7)
+            else:
+                session.permanent = False
 
             if db_role == "admin":
                 return redirect(url_for("admin_dashboard"))
@@ -175,19 +246,69 @@ def register():
     return redirect(url_for("login"))
 
 # ==============================
-# FORGOT PASSWORD (NEW)
+# FORGOT PASSWORD (SECURE)
 # ==============================
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
-    message = ""
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
 
-        if email:
-            message = "If this email exists, reset instructions would be sent."
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
+        conn.close()
 
-    return render_template("forgot_password.html", message=message)
+        if user:
+            token = serializer.dumps(email, salt="password-reset-salt")
+            reset_link = url_for("reset_password", token=token, _external=True)
+
+            msg = Message(
+                "Password Reset",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+            msg.body = f"Click to reset password:\n{reset_link}"
+            mail.send(msg)
+
+        return render_template(
+            "forgot_password.html",
+            message="If this email exists, reset instructions sent."
+        )
+
+    return render_template("forgot_password.html")
+
+# ==============================
+# RESET PASSWORD
+# ==============================
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+
+    try:
+        email = serializer.loads(
+            token,
+            salt="password-reset-salt",
+            max_age=3600
+        )
+    except:
+        return "Reset link expired"
+
+    if request.method == "POST":
+        new_password = request.form.get("password").strip()
+
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET password=? WHERE email=?",
+            (new_password, email)
+        )
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html")
 
 # ==============================
 # LOGOUT
@@ -207,7 +328,43 @@ def admin_dashboard():
     if session.get("role") != "admin":
         return redirect(url_for("home"))
 
-    return render_template("admin_dashboard.html")
+    conn = sqlite3.connect("database/fake_news.db")
+    cursor = conn.cursor()
+
+    # Total users
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+
+    # Total predictions
+    cursor.execute("SELECT COUNT(*) FROM history")
+    total_predictions = cursor.fetchone()[0]
+
+    # Real vs Fake count
+    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Real News'")
+    real_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Fake News'")
+    fake_count = cursor.fetchone()[0]
+
+    # Recent 5 predictions
+    cursor.execute("""
+        SELECT text, prediction, confidence, created_at 
+        FROM history 
+        ORDER BY id DESC 
+        LIMIT 5
+    """)
+    recent_activity = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        total_users=total_users,
+        total_predictions=total_predictions,
+        real_count=real_count,
+        fake_count=fake_count,
+        recent_activity=recent_activity
+    )
 
 # ==============================
 # USER ROUTES
@@ -326,6 +483,14 @@ def predict():
         prediction=result,
         confidence=confidence
     )
+
+# ==============================
+# ABOUT PAGE
+# ==============================
+@app.route("/about")
+@login_required
+def about():
+    return render_template("about.html")
 
 # ==============================
 # RUN

@@ -1,22 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container">
-    <div class="card">
+<div class="admin-wrapper">
 
-        <!-- ADMIN NAV BAR -->
-        <div class="admin-nav">
-            <a href="/admin-dashboard">🆕 New</a>
-            <a href="/admin-history">📜 History</a>
-            <span class="admin-user">
-                👤 {{ session.get("user") }} ({{ session.get("email") }})
-            </span>
+    <h1 class="admin-title">📊 Admin Dashboard</h1>
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <h3>Total Users</h3>
+            <p>{{ total_users }}</p>
         </div>
 
-        <h2>🛠 Admin Dashboard</h2>
-        <p>Welcome, {{ session.get("user") }}!</p>
+        <div class="stat-card">
+            <h3>Total Predictions</h3>
+            <p>{{ total_predictions }}</p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Real News</h3>
+            <p>{{ real_count }}</p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Fake News</h3>
+            <p>{{ fake_count }}</p>
+        </div>
 
     </div>
+
+    <h2 class="recent-title">🕒 Recent Predictions</h2>
+
+    <div class="recent-table">
+        <table>
+            <tr>
+                <th>News (Preview)</th>
+                <th>Prediction</th>
+                <th>Confidence</th>
+                <th>Date</th>
+            </tr>
+
+            {% for row in recent_activity %}
+            <tr>
+                <td>{{ row[0][:50] }}...</td>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}%</td>
+                <td>{{ row[3] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
 </div>
 
 {% endblock %}

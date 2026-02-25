@@ -3,6 +3,13 @@
 
 <div class="card">
 
+    <!-- About Button (Optional Top Right Style) -->
+    <div style="text-align: right; margin-bottom: 10px;">
+        <a href="{{ url_for('about') }}" class="about-link">
+            ℹ️ About Project
+        </a>
+    </div>
+
     <h1 class="title">🧠 Analyze News Authenticity</h1>
     <p class="subtitle">
         Paste any news article below and our AI will detect whether it is real or fake.
@@ -37,7 +44,7 @@
             <div class="confidence-bar">
                 <div class="confidence-fill"
                      style="width: {{ confidence|default(0) }}%">
-                </div>l.
+                </div>
             </div>
 
             <span class="confidence-value">{{ confidence }}%</span>

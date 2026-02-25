@@ -1,128 +1,75 @@
-{% extends "base.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
 
-<div class="container">
-    <div class="card auth-container">
+<div class="background"></div>
 
-        <!-- PROFILE ICON ADDED -->
-        <div style="text-align:center; margin-bottom:15px;">
-            <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
-                 style="width:80px; border-radius:50%; opacity:0.9;">
-        </div>
+<div class="login-container">
+    <div class="login-card">
 
-        <h2 style="text-align:center; margin-bottom:25px;">
-            🔐 Authentication Portal
-        </h2>
+        <div class="logo">A</div>
+        <h2>Welcome Back</h2>
 
-        <!-- ===== ROLE TABS ===== -->
-        <div class="tabs" style="text-align:center; margin-bottom:20px;">
-            <button type="button" class="tab-btn active" onclick="showRole('userRole', this)">User</button>
-            <button type="button" class="tab-btn" onclick="showRole('adminRole', this)">Admin</button>
-        </div>
+        <form method="POST">
 
-        <!-- ================= USER SECTION ================= -->
-        <div id="userRole">
-
-            <!-- USER INNER TABS -->
-            <div class="tabs" style="text-align:center; margin-bottom:15px;">
-                <button type="button" class="tab-btn active" onclick="showUserTab('loginTab', this)">Login</button>
-                <button type="button" class="tab-btn" onclick="showUserTab('registerTab', this)">Register</button>
+            <div class="input-group">
+                <input type="email" name="email" placeholder="Email" required>
             </div>
 
-            <!-- USER LOGIN -->
-            <div id="loginTab" class="tab-content">
-                <form method="POST" action="/login">
-                    <input type="hidden" name="role" value="user">
+            <div class="input-group password-wrapper">
+                <input type="password" name="password" id="password" placeholder="Password" required>
+                <span onclick="togglePassword()">👁</span>
+            </div>
+            <div class="role-selection">
+                <label>
+                    <input type="radio" name="role" value="user" checked>
+                    User
+                </label>
 
-                    <input type="email" name="email" placeholder="User Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
-
-                    <!-- REMEMBER ME ADDED -->
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
-                        <label style="font-size:13px;">
-                            <input type="checkbox" name="remember"> Remember Me
-                        </label>
-
-                        <!-- FORGOT PASSWORD ADDED -->
-                        <a href="/forgot-password" style="font-size:13px;">
-                            Forgot Password?
-                        </a>
-                    </div>
-
-                    <button type="submit">User Login</button>
-                </form>
+                <label>
+                    <input type="radio" name="role" value="admin">
+                    Admin
+                </label>
+            </div>
+            <div class="options">
+                <label>
+                    <input type="checkbox" name="remember"> Remember me
+                </label>
+                <a href="{{ url_for('forgot_password') }}">Forgot Password?</a>
             </div>
 
-            <!-- USER REGISTER -->
-            <div id="registerTab" class="tab-content" style="display:none;">
-                <form method="POST" action="/register">
-                    <input type="hidden" name="role" value="user">
+            <button type="submit" class="login-btn">Log In</button>
 
-                    <input type="text" name="name" placeholder="Full Name" required>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+            <div class="divider">OR</div>
 
-                    <button type="submit">Register</button>
+            <a href="{{ url_for('google_login') }}" class="google-btn">
+                <img src="https://developers.google.com/identity/images/g-logo.png" 
+                    style="width:18px; vertical-align:middle; margin-right:8px;">
+                Continue with Google
+            </a>
 
-                    <!-- ALREADY MEMBER ADDED -->
-                    <div style="text-align:center; margin-top:10px; font-size:13px;">
-                        Already a member?
-                        <a href="#" onclick="showUserTab('loginTab')">Sign In</a>
-                    </div>
-                </form>
-            </div>
+        </form>
 
-        </div>
-
-        <!-- ================= ADMIN SECTION ================= -->
-        <div id="adminRole" style="display:none;">
-            <form method="POST" action="/login">
-
-                <input type="hidden" name="role" value="admin">
-
-                <input type="email" name="email" placeholder="Admin Email" required>
-                <input type="password" name="password" placeholder="Admin Password" required>
-
-                <!-- REMEMBER ME + FORGOT FOR ADMIN -->
-                <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
-                    <label style="font-size:13px;">
-                        <input type="checkbox" name="remember"> Remember Me
-                    </label>
-
-                    <a href="/forgot-password" style="font-size:13px;">
-                        Forgot Password?
-                    </a>
-                </div>
-
-                <button type="submit">Admin Login</button>
-            </form>
-        </div>
+        <p class="signup-text">
+            Already a member?
+            <a href="{{ url_for('login') }}">Sign in</a>
+        </p>
 
     </div>
 </div>
 
 <script>
-/* ================= ROLE SWITCH ================= */
-function showRole(roleId, btn) {
-    document.getElementById("userRole").style.display = "none";
-    document.getElementById("adminRole").style.display = "none";
-    document.getElementById(roleId).style.display = "block";
-
-    let buttons = document.querySelectorAll(".tabs .tab-btn");
-    buttons.forEach(b => b.classList.remove("active"));
-    if(btn) btn.classList.add("active");
-}
-
-/* ================= USER TAB SWITCH ================= */
-function showUserTab(tabId, btn) {
-    document.getElementById("loginTab").style.display = "none";
-    document.getElementById("registerTab").style.display = "none";
-    document.getElementById(tabId).style.display = "block";
-
-    let buttons = document.querySelectorAll("#userRole .tab-btn");
-    buttons.forEach(b => b.classList.remove("active"));
-    if(btn) btn.classList.add("active");
+function togglePassword() {
+    const pass = document.getElementById("password");
+    pass.type = pass.type === "password" ? "text" : "password";
 }
 </script>
 
-{% endblock %}
+</body>
+</html>
