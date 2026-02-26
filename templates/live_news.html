@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container">
+<div class="live-container">
 
     <div class="page-header">
         <div class="page-title">📰 Live News Detection</div>
@@ -11,8 +11,12 @@
     </div>
 
     <div class="premium-card">
-       <form method="POST" action="/predict">
-       <input type="hidden" name="source_page" value="live_news">
+
+        <!-- ✅ FIXED FORM -->
+        <form method="POST" action="{{ url_for('predict') }}">
+            
+            <!-- IMPORTANT -->
+            <input type="hidden" name="source_page" value="live_news">
 
             <select name="category" required>
                 <option value="">Select Category</option>
@@ -24,10 +28,37 @@
                 <option>Global</option>
             </select>
 
-            <textarea name="news" placeholder="Paste live news here..." required></textarea>
+            <textarea 
+                name="news" 
+                placeholder="Paste live news here..." 
+                required
+            ></textarea>
 
             <button type="submit">🔍 Detect News</button>
         </form>
+
+        <!-- ============================= -->
+        <!-- ✅ RESULT SECTION (NEW ADDED) -->
+        <!-- ============================= -->
+
+        {% if prediction %}
+        <div class="result-box 
+            {% if prediction == 'Fake News' %}result-fake
+            {% elif prediction == 'Real News' %}result-real
+            {% endif %}">
+
+            <h2>{{ prediction }}</h2>
+            <p><strong>Confidence:</strong> {{ confidence }}%</p>
+
+            <hr style="margin:15px 0; opacity:0.2;">
+
+            <p><strong>Model Accuracy:</strong> {{ accuracy }}%</p>
+            <p><strong>Dataset Size:</strong> {{ dataset_size }} articles</p>
+            <p><strong>Algorithm:</strong> {{ algorithm }}</p>
+
+        </div>
+        {% endif %}
+
     </div>
 
 </div>

@@ -15,7 +15,10 @@
         Paste any news article below and our AI will detect whether it is real or fake.
     </p>
 
-    <input type="hidden" name="source_page" value="home">
+    <form action="{{ url_for('predict') }}" method="POST">
+
+        <input type="hidden" name="source_page" value="home">
+
         <textarea
             name="news"
             placeholder="Paste news article here..."
@@ -25,6 +28,7 @@
         <button type="submit" class="detect-btn">
             🔍 Detect News
         </button>
+
     </form>
 
     <!-- Loader -->
@@ -32,8 +36,8 @@
 
     {% if prediction %}
     <div class="result-box
-        {% if 'Fake' in prediction %} fake
-        {% elif 'Real' in prediction %} real
+        {% if 'Fake' in prediction %} result-fake
+        {% elif 'Real' in prediction %} result-real
         {% endif %}">
 
         <h2 class="prediction-text">{{ prediction }}</h2>
@@ -48,6 +52,13 @@
             </div>
 
             <span class="confidence-value">{{ confidence }}%</span>
+        </div>
+        <hr style="margin-top:20px;">
+
+        <div style="margin-top:10px; font-size:14px; opacity:0.8;">
+            <p><strong>Model Accuracy:</strong> {{ accuracy }}%</p>
+            <p><strong>Dataset Size:</strong> {{ dataset_size }} articles</p>
+            <p><strong>Algorithm:</strong> {{ algorithm }}</p>
         </div>
 
     </div>

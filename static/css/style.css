@@ -78,6 +78,10 @@ body {
 }
 
 /* ================= MAIN CONTAINER ================= */
+.live-container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
 .main-container {
     padding: 30px 20px 60px;
 }
@@ -227,6 +231,14 @@ body.light-mode {
     color: #1e293b;
 }
 
+body.light-mode .page-title {
+    color: #111827;   /* dark gray */
+}
+
+body.light-mode .page-subtitle {
+    color: #334155;   /* medium dark */
+}
+
 body.light-mode .navbar {
     background: rgba(255,255,255,0.75);
 }
@@ -262,6 +274,12 @@ body.light-mode #themeToggle {
 /* ===================================================== */
 
 .container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.auth-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;

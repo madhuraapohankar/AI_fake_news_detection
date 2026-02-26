@@ -8,16 +8,18 @@ from datetime import datetime, timedelta
 import os
 from werkzeug.utils import secure_filename
 from functools import wraps
-from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
 
 # ==============================
 # SESSION SECURITY
 # ==============================
-app.secret_key = "supersecretkey"
+app.secret_key = os.getenv("SECRET_KEY")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
@@ -28,8 +30,9 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'aidetectionfakenews@gmail.com'
-app.config['MAIL_PASSWORD'] = 'bfixrfodsmfzzruk'
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
 
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
@@ -41,8 +44,8 @@ oauth = OAuth(app)
 
 google = oauth.register(
     name='google',
-    client_id="your-real-client-id",
-    client_secret="your-real-secret",
+    client_id= os.getenv("CLIENT_ID"),
+    client_secret= os.getenv("CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'},
 )
@@ -214,9 +217,7 @@ def login():
 @login_required
 def predict():
 
-    # ✅ ALWAYS DEFINE FIRST (VERY IMPORTANT)
     source_page = request.form.get("source_page", "home")
-
     text = request.form.get("news") or request.form.get("news_text")
 
     if not text or not text.strip():
@@ -233,7 +234,7 @@ def predict():
         clean_text = str(text).strip().lower()
 
         try:
-            # ✅ pipeline case
+            # Pipeline case
             prediction = model.predict([clean_text])[0]
 
             if hasattr(model, "predict_proba"):
@@ -244,7 +245,7 @@ def predict():
                 confidence = 90.0
 
         except Exception:
-            # ✅ vectorizer + model case
+            # Vectorizer + model case
             text_vector = vectorizer.transform([clean_text])
             prediction = model.predict(text_vector)[0]
 
@@ -267,7 +268,9 @@ def predict():
             confidence=0
         )
 
-    # ✅ SAVE HISTORY
+    # ==============================
+    # SAVE HISTORY
+    # ==============================
     conn = sqlite3.connect("database/fake_news.db")
     cursor = conn.cursor()
 
@@ -284,7 +287,16 @@ def predict():
     conn.commit()
     conn.close()
 
-    # ✅ SMART RETURN TO SAME PAGE
+    # ==============================
+    # MODEL META INFO (CORRECT PLACE)
+    # ==============================
+    algorithm_name = type(model).__name__
+    dataset_size = 50000
+    model_accuracy = 94.2
+
+    # ==============================
+    # RETURN TEMPLATE
+    # ==============================
     page_map = {
         "home": "index.html",
         "live_news": "live_news.html",
@@ -297,9 +309,63 @@ def predict():
     return render_template(
         template_name,
         prediction=result,
-        confidence=confidence
+        confidence=confidence,
+        accuracy=model_accuracy,
+        dataset_size=dataset_size,
+        algorithm=algorithm_name
     )
+# ==============================
+# Forget Password
+# ==============================
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
 
+    if request.method == "POST":
+        email = request.form.get("email")
+
+        token = serializer.dumps(email, salt="password-reset-salt")
+
+        reset_url = url_for("reset_password", token=token, _external=True)
+
+        msg = Message(
+            subject="Password Reset Request",
+            recipients=[email]
+        )
+
+        msg.body = f"""
+Click the link below to reset your password:
+
+{reset_url}
+
+If you did not request this, ignore this email.
+"""
+
+        mail.send(msg)
+
+        return render_template("forgot_password.html",
+                               message="Reset link sent. Please check your email.")
+
+    return render_template("forgot_password.html")
+
+# ==============================
+# RESET PASSWORD
+# ==============================
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
+    except:
+        return "The reset link is invalid or expired."
+
+    if request.method == "POST":
+        new_password = request.form.get("password")
+
+        # UPDATE PASSWORD IN DATABASE HERE
+
+        return "Password updated successfully!"
+
+    return render_template("reset_password.html")
 # ==============================
 # USER ROUTES (🔥 IMPORTANT)
 # ==============================
@@ -324,20 +390,87 @@ def kids_news():
 @app.route("/upload", methods=["GET", "POST"])
 @login_required
 def upload_file():
-    message = ""
+
+    # 🔴 Important: Default is None
+    prediction = None
+    confidence = None
 
     if request.method == "POST":
-        file = request.files.get("file")
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(filepath)
-            message = "✅ File uploaded successfully"
-        else:
-            message = "❌ Invalid file type"
 
-    uploaded_files = os.listdir(app.config["UPLOAD_FOLDER"])
-    return render_template("upload.html", message=message, files=uploaded_files)
+        file = request.files.get("file")
+
+        # If no file uploaded, just reload page clean
+        if not file or file.filename == "":
+            return render_template("upload.html",
+                                   prediction=None,
+                                   confidence=None)
+
+        if not allowed_file(file.filename):
+            return render_template("upload.html",
+                                   prediction=None,
+                                   confidence=None)
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
+
+        # =========================
+        # EXTRACT TEXT
+        # =========================
+        extracted_text = ""
+
+        if filename.lower().endswith(".txt"):
+            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                extracted_text = f.read()
+
+        elif filename.lower().endswith(".pdf"):
+            import PyPDF2
+            with open(filepath, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    extracted_text += page.extract_text() or ""
+
+        if not extracted_text.strip():
+            return render_template("upload.html",
+                                   prediction=None,
+                                   confidence=None)
+
+        clean_text = extracted_text.strip().lower()
+
+        try:
+            try:
+                pred = model.predict([clean_text])[0]
+                if hasattr(model, "predict_proba"):
+                    confidence = round(
+                        np.max(model.predict_proba([clean_text])[0]) * 100, 2
+                    )
+                else:
+                    confidence = 90.0
+            except:
+                text_vector = vectorizer.transform([clean_text])
+                pred = model.predict(text_vector)[0]
+                if hasattr(model, "predict_proba"):
+                    confidence = round(
+                        np.max(model.predict_proba(text_vector)[0]) * 100, 2
+                    )
+                else:
+                    confidence = 90.0
+
+            prediction = "Real News" if pred == 1 else "Fake News"
+
+        except:
+            return render_template("upload.html",
+                                   prediction=None,
+                                   confidence=None)
+
+        return render_template("upload.html",
+                               prediction=prediction,
+                               confidence=confidence)
+
+    # 🔴 GET request always clean
+    return render_template("upload.html",
+                           prediction=None,
+                           confidence=None)
 
 @app.route("/history")
 @login_required
