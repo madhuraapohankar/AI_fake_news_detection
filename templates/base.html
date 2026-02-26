@@ -30,7 +30,7 @@
         <div class="nav-links">
 
             <a href="/">Home</a>
-            <a href="/about">About</a>
+           
             <a href="/live-news">Live News</a>
             <a href="/video-news">Video News</a>
             <a href="/kids-news">Kids News</a>
@@ -44,6 +44,7 @@
             <!-- ⭐ PROFESSIONAL USER DISPLAY -->
             {% if session.get("user") %}
             <a href="/logout" class="logout-btn">Logout</a>
+            <a href="/about">About</a>
             <span class="welcome-text">👤 Welcome, {{ session.get("user") }}</span>
             {% else %}
             <a href="/login">Login</a>
