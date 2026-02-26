@@ -206,5 +206,8 @@ database/*.db
 
 # Marimo
 marimo/_static/
+
+# Uploaded files
+static/uploads/
 marimo/_lsp/
 __marimo__/
