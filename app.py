@@ -213,50 +213,92 @@ def login():
 @app.route("/predict", methods=["POST"])
 @login_required
 def predict():
+
+    # ✅ ALWAYS DEFINE FIRST (VERY IMPORTANT)
+    source_page = request.form.get("source_page", "home")
+
     text = request.form.get("news") or request.form.get("news_text")
 
     if not text or not text.strip():
         return redirect(url_for("home"))
 
-    if model is None:
-        return render_template("index.html", prediction="Model not loaded", confidence=0)
+    if model is None or vectorizer is None:
+        return render_template(
+            "index.html",
+            prediction="Model not loaded",
+            confidence=0
+        )
 
     try:
         clean_text = str(text).strip().lower()
 
         try:
+            # ✅ pipeline case
             prediction = model.predict([clean_text])[0]
-            confidence = (
-                round(np.max(model.predict_proba([clean_text])[0]) * 100, 2)
-                if hasattr(model, "predict_proba")
-                else 90.0
-            )
+
+            if hasattr(model, "predict_proba"):
+                confidence = round(
+                    np.max(model.predict_proba([clean_text])[0]) * 100, 2
+                )
+            else:
+                confidence = 90.0
+
         except Exception:
+            # ✅ vectorizer + model case
             text_vector = vectorizer.transform([clean_text])
             prediction = model.predict(text_vector)[0]
-            confidence = (
-                round(np.max(model.predict_proba(text_vector)[0]) * 100, 2)
-                if hasattr(model, "predict_proba")
-                else 90.0
-            )
+
+            if hasattr(model, "predict_proba"):
+                confidence = round(
+                    np.max(model.predict_proba(text_vector)[0]) * 100, 2
+                )
+            else:
+                confidence = 90.0
 
         result = "Real News" if prediction == 1 else "Fake News"
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return render_template("index.html", prediction="Error in prediction", confidence=0)
 
+        return render_template(
+            "index.html",
+            prediction="Error in prediction",
+            confidence=0
+        )
+
+    # ✅ SAVE HISTORY
     conn = sqlite3.connect("database/fake_news.db")
     cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO history (text, prediction, confidence, created_at) VALUES (?, ?, ?, ?)",
-        (text, result, confidence, datetime.now().strftime("%Y-%m-%d %H:%M")),
-    )
+
+    cursor.execute("""
+        INSERT INTO history (text, prediction, confidence, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (
+        text,
+        result,
+        confidence,
+        datetime.now().strftime("%Y-%m-%d %H:%M")
+    ))
+
     conn.commit()
     conn.close()
 
-    return render_template("index.html", prediction=result, confidence=confidence)
+    # ✅ SMART RETURN TO SAME PAGE
+    page_map = {
+        "home": "index.html",
+        "live_news": "live_news.html",
+        "video_news": "video_news.html",
+        "kids_news": "kids_news.html",
+    }
+
+    template_name = page_map.get(source_page, "index.html")
+
+    return render_template(
+        template_name,
+        prediction=result,
+        confidence=confidence
+    )
 
 # ==============================
 # USER ROUTES (🔥 IMPORTANT)

@@ -15,7 +15,7 @@
         Paste any news article below and our AI will detect whether it is real or fake.
     </p>
 
-    <form method="POST" action="/predict" onsubmit="showLoader()">
+    <input type="hidden" name="source_page" value="home">
         <textarea
             name="news"
             placeholder="Paste news article here..."
