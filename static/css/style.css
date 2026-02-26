@@ -464,3 +464,8 @@ body.light-mode .auth-container a {
 .recent-table th {
     text-align: left;
 }
+.welcome-text {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--welcome-color);
+}

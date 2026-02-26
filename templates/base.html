@@ -24,6 +24,7 @@
 
     <div class="nav-right">
 
+        <!-- 🌙 Theme Toggle -->
         <button id="themeToggle" type="button">🌙</button>
 
         <div class="nav-links">
@@ -37,15 +38,16 @@
             <a href="/history">History</a>
 
             {% if session.get("role") == "admin" %}
-                <a href="/history">Admin Panel</a>
+                <a href="/admin_dashboard">Admin Panel</a>
             {% endif %}
 
+            <!-- ⭐ PROFESSIONAL USER DISPLAY -->
             {% if session.get("user") %}
-                <a href="/logout">Logout</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+            <span class="welcome-text">👤 Welcome, {{ session.get("user") }}</span>
             {% else %}
-                <a href="/login">Login</a>
+            <a href="/login">Login</a>
             {% endif %}
-
         </div>
     </div>
 </nav>
@@ -61,7 +63,6 @@
 </footer>
 
 <!-- ================= SCRIPTS ================= -->
-
 <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 

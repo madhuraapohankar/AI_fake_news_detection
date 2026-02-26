@@ -174,13 +174,14 @@ def login():
         role = request.form.get("role", "user").strip().lower()
         remember = request.form.get("remember")
 
+        # ✅ Validation
         if not email or not password:
             return render_template("login.html", error="All fields required")
 
         conn = sqlite3.connect("database/fake_news.db")
         cursor = conn.cursor()
 
-        # 🔥 ONLY CHECK EMAIL + PASSWORD
+        # ✅ Check user
         cursor.execute("""
             SELECT id, name, email, role FROM users
             WHERE email=? AND password=?
@@ -192,21 +193,27 @@ def login():
         if user:
             db_role = (user[3] or "user").lower()
 
-            # 🔥 Compare role safely
+            # ✅ Role check
             if db_role != role:
                 return render_template("login.html", error="Wrong role selected")
 
+            # ✅ Clear old session
             session.clear()
-            session["user"] = user[1]
+
+            # ⭐ IMPORTANT FOR NAVBAR
+            session["user"] = user[1]   # name (for Welcome, Name)
             session["email"] = user[2]
             session["role"] = db_role
+            session["user_id"] = user[0]  # ⭐ professional touch
 
+            # ✅ Remember me
             if remember:
                 session.permanent = True
                 app.permanent_session_lifetime = timedelta(days=7)
             else:
                 session.permanent = False
 
+            # ✅ Redirect by role
             if db_role == "admin":
                 return redirect(url_for("admin_dashboard"))
 
