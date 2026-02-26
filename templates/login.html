@@ -4,17 +4,25 @@
     <meta charset="UTF-8">
     <title>Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font (match project) -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
 <body>
-
-<div class="background"></div>
 
 <div class="login-container">
     <div class="login-card">
 
         <div class="logo">A</div>
         <h2>Welcome Back</h2>
+
+        {% if error %}
+        <p style="color:#ef4444; font-size:14px; margin-bottom:10px;">
+            {{ error }}
+        </p>
+        {% endif %}
 
         <form method="POST">
 
@@ -26,6 +34,7 @@
                 <input type="password" name="password" id="password" placeholder="Password" required>
                 <span onclick="togglePassword()">👁</span>
             </div>
+
             <div class="role-selection">
                 <label>
                     <input type="radio" name="role" value="user" checked>
@@ -37,6 +46,7 @@
                     Admin
                 </label>
             </div>
+
             <div class="options">
                 <label>
                     <input type="checkbox" name="remember"> Remember me
@@ -49,8 +59,8 @@
             <div class="divider">OR</div>
 
             <a href="{{ url_for('google_login') }}" class="google-btn">
-                <img src="https://developers.google.com/identity/images/g-logo.png" 
-                    style="width:18px; vertical-align:middle; margin-right:8px;">
+                <img src="https://developers.google.com/identity/images/g-logo.png"
+                     style="width:18px; vertical-align:middle; margin-right:8px;">
                 Continue with Google
             </a>
 
@@ -58,7 +68,7 @@
 
         <p class="signup-text">
             Already a member?
-            <a href="{{ url_for('login') }}">Sign in</a>
+            <a href="{{ url_for('login') }}">Back to Login</a>
         </p>
 
     </div>

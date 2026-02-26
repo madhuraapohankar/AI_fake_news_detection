@@ -28,8 +28,8 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'ramchandaniarchita2@gmail.com'
-app.config['MAIL_PASSWORD'] = 'vwit wmuf amah dezw'
+app.config['MAIL_USERNAME'] = 'aidetectionfakenews@gmail.com'
+app.config['MAIL_PASSWORD'] = 'bfix rfod smfz zruk'
 
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
