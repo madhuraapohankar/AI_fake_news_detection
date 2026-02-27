@@ -12,9 +12,13 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 app = Flask(__name__)
+
 
 # ==============================
 # SESSION SECURITY
@@ -23,6 +27,31 @@ app.secret_key = os.getenv("SECRET_KEY")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+
+# ==============================
+# Create User Model
+# ==============================
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+
+# ✅ ADD IT RIGHT HERE
+with app.app_context():
+    db.create_all()
+
+# ==============================
+# Add User Loader
+# ==============================
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # ==============================
 # PASSWORD RESET CONFIG
@@ -72,32 +101,33 @@ def google_authorize():
     if not user:
         cursor.execute(
             "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            (name, email, "google_auth", "user"),
+            (name, email, generate_password_hash("google_auth"), "user"),
         )
         conn.commit()
+
+        cursor.execute("SELECT id, role FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
+
         role = "user"
     else:
         role = user[1] or "user"
 
     conn.close()
 
-    session.clear()
-    session["user"] = name
-    session["email"] = email
-    session["role"] = role
+    # ✅ REQUIRED CHANGE → Login with Flask-Login
+    flask_user = User.query.filter_by(email=email).first()
+
+    if not flask_user:
+        flask_user = User(
+            email=email,
+            password=generate_password_hash("google_auth")
+        )
+        db.session.add(flask_user)
+        db.session.commit()
+
+    login_user(flask_user)
 
     return redirect(url_for("home"))
-
-# ==============================
-# LOGIN REQUIRED DECORATOR
-# ==============================
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user" not in session:
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
 
 # ==============================
 # LOAD MODEL
@@ -181,31 +211,46 @@ def login():
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, email, role FROM users WHERE email=? AND password=?",
-            (email, password),
+            "SELECT id, name, email, password, role FROM users WHERE email=?",
+            (email,),
         )
 
         user = cursor.fetchone()
-        conn.close()
 
         if user:
-            db_role = (user[3] or "user").lower()
+            stored_password = user[3]
+
+            if not check_password_hash(stored_password, password):
+                conn.close()
+                return render_template("login.html", error="Invalid credentials")
+
+            db_role = (user[4] or "user").lower()
 
             if db_role != role:
+                conn.close()
                 return render_template("login.html", error="Wrong role selected")
 
-            session.clear()
-            session["user"] = user[1]
-            session["email"] = user[2]
-            session["role"] = db_role
-            session["user_id"] = user[0]
-            session.permanent = bool(remember)
+            conn.close()
+
+            # ✅ REQUIRED CHANGE → Use Flask-Login
+            flask_user = User.query.filter_by(email=email).first()
+
+            if not flask_user:
+                flask_user = User(
+                    email=email,
+                    password=stored_password
+                )
+                db.session.add(flask_user)
+                db.session.commit()
+
+            login_user(flask_user, remember=bool(remember))
 
             if db_role == "admin":
                 return redirect(url_for("admin_dashboard"))
 
             return redirect(url_for("home"))
 
+        conn.close()
         return render_template("login.html", error="Invalid credentials")
 
     return render_template("login.html")
@@ -361,11 +406,80 @@ def reset_password(token):
     if request.method == "POST":
         new_password = request.form.get("password")
 
-        # UPDATE PASSWORD IN DATABASE HERE
+        hashed_password = generate_password_hash(new_password)
+
+        # ✅ UPDATE fake_news.db
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET password=? WHERE email=?",
+            (hashed_password, email),
+        )
+        conn.commit()
+        conn.close()
+
+        # ✅ UPDATE users.db (Flask-Login DB)
+        flask_user = User.query.filter_by(email=email).first()
+        if flask_user:
+            flask_user.password = hashed_password
+            db.session.commit()
 
         return "Password updated successfully!"
 
     return render_template("reset_password.html")
+
+# ==============================
+# REGISTER
+# ==============================
+from werkzeug.security import generate_password_hash
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+        role = request.form.get("role", "user").strip().lower()
+
+        if not name or not email or not password:
+            return render_template("register.html", error="All fields required")
+
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+
+        # Check if email already exists
+        cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+        existing = cursor.fetchone()
+
+        if existing:
+            conn.close()
+            return render_template("register.html", error="User already exists")
+
+        hashed_password = generate_password_hash(password)
+
+        cursor.execute(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+            (name, email, hashed_password, role),
+        )
+
+        conn.commit()
+        conn.close()
+
+        # ✅ REQUIRED ADDITION → Also create Flask-Login user
+        flask_user = User.query.filter_by(email=email).first()
+
+        if not flask_user:
+            new_user = User(
+                email=email,
+                password=hashed_password
+            )
+            db.session.add(new_user)
+            db.session.commit()
+
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
 # ==============================
 # USER ROUTES (🔥 IMPORTANT)
 # ==============================
@@ -488,9 +602,71 @@ def about():
     return render_template("about.html")
 
 @app.route("/logout")
+@login_required
 def logout():
-    session.clear()
+    logout_user()
     return redirect(url_for("login"))
+
+@app.route("/admin_dashboard")
+@login_required
+def admin_dashboard():
+
+    # Check role from fake_news.db
+    conn = sqlite3.connect("database/fake_news.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT role FROM users WHERE email=?", (current_user.email,))
+    user = cursor.fetchone()
+
+    if not user or user[0].lower() != "admin":
+        conn.close()
+        return redirect(url_for("home"))
+
+    # ============================
+    # TOTAL USERS
+    # ============================
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+
+    # ============================
+    # TOTAL PREDICTIONS
+    # ============================
+    cursor.execute("SELECT COUNT(*) FROM history")
+    total_predictions = cursor.fetchone()[0]
+
+    # ============================
+    # REAL NEWS COUNT
+    # ============================
+    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Real News'")
+    real_count = cursor.fetchone()[0]
+
+    # ============================
+    # FAKE NEWS COUNT
+    # ============================
+    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Fake News'")
+    fake_count = cursor.fetchone()[0]
+
+    # ============================
+    # RECENT ACTIVITY (Last 5)
+    # ============================
+    cursor.execute("""
+        SELECT text, prediction, confidence, created_at
+        FROM history
+        ORDER BY id DESC
+        LIMIT 5
+    """)
+    recent_activity = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        total_users=total_users,
+        total_predictions=total_predictions,
+        real_count=real_count,
+        fake_count=fake_count,
+        recent_activity=recent_activity
+    )
 
 # ==============================
 # RUN

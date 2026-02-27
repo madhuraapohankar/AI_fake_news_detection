@@ -37,17 +37,19 @@
             <a href="/upload">Upload</a>
             <a href="/history">History</a>
 
-            {% if session.get("role") == "admin" %}
-                <a href="/admin_dashboard">Admin Panel</a>
-            {% endif %}
+            {% if current_user.is_authenticated %}
 
-            <!-- ⭐ PROFESSIONAL USER DISPLAY -->
-            {% if session.get("user") %}
-            <a href="/logout" class="logout-btn">Logout</a>
-            <a href="/about">About</a>
-            <span class="welcome-text">👤 Welcome, {{ session.get("user") }}</span>
+                <!-- Admin Panel (if needed later, you can reconnect role properly) -->
+                <!-- <a href="/admin_dashboard">Admin Panel</a> -->
+
+                <a href="/logout" class="logout-btn">Logout</a>
+                <a href="/about">About</a>
+                <span class="welcome-text">
+                    👤 Welcome, {{ current_user.email.split('@')[0] | capitalize }}
+                </span>
+
             {% else %}
-            <a href="/login">Login</a>
+                <a href="/login">Login</a>
             {% endif %}
         </div>
     </div>

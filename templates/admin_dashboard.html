@@ -9,22 +9,22 @@
 
         <div class="stat-card">
             <h3>Total Users</h3>
-            <p>{{ total_users }}</p>
+            <p>{{ total_users or 0 }}</p>
         </div>
 
         <div class="stat-card">
             <h3>Total Predictions</h3>
-            <p>{{ total_predictions }}</p>
+            <p>{{ total_predictions or 0 }}</p>
         </div>
 
         <div class="stat-card">
             <h3>Real News</h3>
-            <p>{{ real_count }}</p>
+            <p>{{ real_count or 0 }}</p>
         </div>
 
         <div class="stat-card">
             <h3>Fake News</h3>
-            <p>{{ fake_count }}</p>
+            <p>{{ fake_count or 0 }}</p>
         </div>
 
     </div>
@@ -40,14 +40,28 @@
                 <th>Date</th>
             </tr>
 
-            {% for row in recent_activity %}
-            <tr>
-                <td>{{ row[0][:50] }}...</td>
-                <td>{{ row[1] }}</td>
-                <td>{{ row[2] }}%</td>
-                <td>{{ row[3] }}</td>
-            </tr>
-            {% endfor %}
+            {% if recent_activity %}
+                {% for row in recent_activity %}
+                <tr>
+                    <td>
+                        {% if row[0] %}
+                            {{ row[0][:50] }}{% if row[0]|length > 50 %}...{% endif %}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] }}%</td>
+                    <td>{{ row[3] }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="4" style="text-align:center; padding:20px;">
+                        No recent activity found.
+                    </td>
+                </tr>
+            {% endif %}
         </table>
     </div>
 
