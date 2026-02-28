@@ -42,11 +42,30 @@
                 <!-- Admin Panel (if needed later, you can reconnect role properly) -->
                 <!-- <a href="/admin_dashboard">Admin Panel</a> -->
 
-                <a href="/logout" class="logout-btn">Logout</a>
                 <a href="/about">About</a>
-                <span class="welcome-text">
-                    👤 Welcome, {{ current_user.email.split('@')[0] | capitalize }}
-                </span>
+
+                <!-- Profile Container -->
+                <div class="profile-container">
+
+                    <!-- Small Profile Circle -->
+                    <div class="profile-icon" onclick="toggleProfile()">
+                        {{ current_user.email.split('@')[0][0] | upper }}
+                    </div>
+
+                    <!-- Profile Dropdown Card -->
+                    <div class="profile-card" id="profileCard">
+                        <div class="profile-header">
+                            <div class="profile-big-icon">
+                                {{ current_user.email.split('@')[0][0] | upper }}
+                            </div>
+                            <h5>Welcome, {{ current_user.email.split('@')[0] | capitalize }}</h5>
+                            <p>{{ current_user.email }}</p>
+                        </div>
+
+                        <a href="/logout" class="logout-btn">Logout</a>
+                    </div>
+
+                </div>
 
             {% else %}
                 <a href="/login">Login</a>

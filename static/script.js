@@ -33,3 +33,25 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+/* ================= PROFILE DROPDOWN ================= */
+
+document.addEventListener("click", function (event) {
+
+    const profileContainer = document.querySelector(".profile-container");
+    const profileCard = document.getElementById("profileCard");
+
+    if (!profileContainer || !profileCard) return;
+
+    // If clicking on profile icon → toggle
+    if (profileContainer.contains(event.target)) {
+
+        if (event.target.closest(".profile-icon")) {
+            profileCard.style.display =
+                profileCard.style.display === "block" ? "none" : "block";
+        }
+
+    } else {
+        // Click outside → close
+        profileCard.style.display = "none";
+    }
+});

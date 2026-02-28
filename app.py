@@ -528,6 +528,56 @@ def upload_file():
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
+        file_ext = filename.rsplit(".", 1)[1].lower()
+        extracted_text = ""
+
+        # ================= TXT =================
+        if file_ext == "txt":
+            with open(filepath, "r", encoding="utf-8") as f:
+                extracted_text = f.read()
+
+        # ================= PDF =================
+        elif file_ext == "pdf":
+            import PyPDF2
+            with open(filepath, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    if page.extract_text():
+                        extracted_text += page.extract_text()
+
+        # ================= IMAGE (JPG, PNG) =================
+        elif file_ext in ["jpg", "jpeg", "png"]:
+            import pytesseract
+            from PIL import Image
+
+            # Windows users only (adjust path if needed)
+            pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+            image = Image.open(filepath)
+            extracted_text = pytesseract.image_to_string(image)
+
+        # If no text extracted
+        if not extracted_text.strip():
+            return render_template("upload.html",
+                                   prediction="Unable to extract text",
+                                   confidence=0)
+
+        # ================= PREDICTION =================
+
+        prediction_result = model.predict([extracted_text])[0]
+
+        try:
+            confidence_score = model.predict_proba([extracted_text])[0]
+            confidence = round(max(confidence_score) * 100, 2)
+        except:
+            confidence = 0
+
+        prediction = "Real News" if prediction_result == 1 else "Fake News"
+
+        return render_template("upload.html",
+                            prediction=prediction,
+                            confidence=confidence)
+
         # =========================
         # EXTRACT TEXT
         # =========================
