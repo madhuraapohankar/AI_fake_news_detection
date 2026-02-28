@@ -588,3 +588,66 @@ body.light-mode .profile-card .logout-btn {
     background: #ef4444;
     color: white;
 }
+/* ================= PREMIUM DASHBOARD ================= */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 30px;
+    margin-top: 50px;
+}
+
+.dashboard-card {
+    background: rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 35px 25px;
+    text-align: center;
+    text-decoration: none;
+    color: white;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.12);
+    transition: all 0.3s ease;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+}
+
+.dashboard-card:hover {
+    transform: translateY(-8px);
+    background: rgba(255,255,255,0.12);
+}
+
+.card-icon {
+    font-size: 42px;
+    margin-bottom: 15px;
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.card-desc {
+    font-size: 14px;
+    color: #cbd5e1;
+}
+/* ================= LIGHT MODE DASHBOARD FIX ================= */
+
+body.light-mode .dashboard-card {
+    background: white;
+    color: #1e293b;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+}
+
+body.light-mode .dashboard-card:hover {
+    background: #f8fafc;
+    transform: translateY(-6px);
+}
+
+body.light-mode .card-title {
+    color: #0f172a;
+}
+
+body.light-mode .card-desc {
+    color: #475569;
+}

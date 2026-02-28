@@ -186,12 +186,20 @@ def init_db():
 init_db()
 
 # ==============================
+# NEWS ANALYZER
+# ==============================
+@app.route("/news-analyzer")
+@login_required
+def news_analyzer():
+    return render_template("index.html")
+
+# ==============================
 # HOME
 # ==============================
 @app.route("/")
 @login_required
 def home():
-    return render_template("index.html")
+    return render_template("dashboard.html")
 
 # ==============================
 # LOGIN

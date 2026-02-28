@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="live-container">
+
+    <div class="page-header">
+        <div class="page-title">🚀 Welcome to Fake News AI</div>
+        <div class="page-subtitle">
+            Select a feature to begin analyzing news content
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+
+        <a href="/news-analyzer" class="dashboard-card">
+            <div class="card-icon">🧠</div>
+            <div class="card-title">News Analyzer</div>
+            <div class="card-desc">Analyze pasted news text instantly</div>
+        </a>
+
+        <a href="/upload" class="dashboard-card">
+            <div class="card-icon">📤</div>
+            <div class="card-title">Upload File</div>
+            <div class="card-desc">Upload PDF, TXT, or Image files</div>
+        </a>
+
+        <a href="/live-news" class="dashboard-card">
+            <div class="card-icon">📰</div>
+            <div class="card-title">Live News</div>
+            <div class="card-desc">Check trending real-time headlines</div>
+        </a>
+
+        <a href="/video-news" class="dashboard-card">
+            <div class="card-icon">🎥</div>
+            <div class="card-title">Video News</div>
+            <div class="card-desc">Analyze video-based news content</div>
+        </a>
+
+        <a href="/kids-news" class="dashboard-card">
+            <div class="card-icon">👶</div>
+            <div class="card-title">Kids News</div>
+            <div class="card-desc">Simplified news for children</div>
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}
