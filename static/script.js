@@ -1,3 +1,8 @@
+// Prevent Form Resubmission on Page Refresh
+if (window.history.replaceState) {
+    window.history.replaceState(null, null, window.location.href);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     console.log("✅ script loaded");
 
@@ -53,5 +58,27 @@ document.addEventListener("click", function (event) {
     } else {
         // Click outside → close
         profileCard.style.display = "none";
+    }
+});
+
+/* ================= CLEAR RESULT ON NEW INPUT ================= */
+document.addEventListener("DOMContentLoaded", function () {
+    const inputs = document.querySelectorAll("textarea, input[type='url'], input[type='text'], input[type='file']");
+    const resultBoxes = document.querySelectorAll(".result-box");
+
+    if (inputs.length > 0 && resultBoxes.length > 0) {
+        inputs.forEach(input => {
+            // Listen for typing or file selection
+            input.addEventListener("input", function() {
+                resultBoxes.forEach(box => {
+                    box.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+                    box.style.opacity = "0";
+                    box.style.transform = "translateY(10px) translateZ(0px)";
+                    setTimeout(() => {
+                        box.style.display = "none";
+                    }, 300);
+                });
+            }, { once: true }); // Only trigger once so we aren't spamming styles
+        });
     }
 });

@@ -2,3 +2,11 @@ flask
 pandas
 numpy
 scikit-learn
+requests
+transformers
+torch
+torchvision
+Pillow
+SpeechRecognition
+moviepy
+pydub
