@@ -327,6 +327,22 @@ def get_real_news_fact_check(text):
         "source": "Fact Check Verification Network (Demo Mode)"
     }
 
+def get_dynamic_message(prediction_result):
+    import random
+    if not prediction_result: return ""
+    if "Fake" in prediction_result:
+        return random.choice([
+            "🚨 This is wrong. Here is the real news:",
+            "⚠️ Warning: This claim is misleading. The verified facts are:",
+            "🛑 Fake News Detected. See the actual story below:"
+        ])
+    else:
+        return random.choice([
+            "✅ Verified! This news appears authentic. See verified records:",
+            "✅ The facts in this story check out. See original source:",
+            "✅ This claim is supported by reliable sources:"
+        ])
+
 # ==============================
 # PREDICT
 # ==============================
@@ -377,9 +393,8 @@ def predict():
 
         result = "Fake News" if prediction == 1 else "Real News"
         
-        real_news_context = None
-        if "Fake" in result:
-            real_news_context = get_real_news_fact_check(clean_text)
+        real_news_context = get_real_news_fact_check(clean_text)
+        context_message = get_dynamic_message(result)
 
     except Exception as e:
         import traceback
@@ -437,7 +452,8 @@ def predict():
         dataset_size=dataset_size,
         algorithm=algorithm_name,
         submitted_text=text,
-        real_news_context=real_news_context
+        real_news_context=real_news_context,
+        context_message=context_message
     )
 # ==============================
 # Forget Password
@@ -754,7 +770,8 @@ def upload_file():
                     confidence = round(result[0]['score'] * 100, 2)
                     
                     prediction = "Fake News" if "fake" in pred_label else "Real News"
-                    return render_template("upload.html", prediction=prediction, confidence=confidence, submitted_text=f"Image processed: {filename}")
+                    context_message = get_dynamic_message(prediction)
+                    return render_template("upload.html", prediction=prediction, confidence=confidence, submitted_text=f"Image processed: {filename}", context_message=context_message, real_news_context=get_real_news_fact_check(filename))
                 except Exception as e:
                     print("Image Prediction Error:", e)
                     return render_template("upload.html", prediction="Error in Image Prediction", confidence=0, submitted_text=f"Failed to process: {filename}")
@@ -806,7 +823,8 @@ def upload_file():
                     
                 # If there's no extracted text, just return the image prediction
                 if not extracted_text.strip():
-                    return render_template("upload.html", prediction=img_prediction, confidence=img_confidence, submitted_text=f"Video processed: {filename}")
+                    context_message = get_dynamic_message(img_prediction)
+                    return render_template("upload.html", prediction=img_prediction, confidence=img_confidence, submitted_text=f"Video processed: {filename}", context_message=context_message, real_news_context=get_real_news_fact_check(filename))
                     
             except Exception as e:
                 print("Video Processing Error:", e)
@@ -844,16 +862,16 @@ def upload_file():
             
             confidence = round((confidence + img_confidence) / 2, 2)
 
-        real_news_context = None
-        if "Fake" in prediction:
-            search_text = extracted_text if extracted_text.strip() else filename
-            real_news_context = get_real_news_fact_check(search_text)
+        search_text = extracted_text if extracted_text.strip() else filename
+        real_news_context = get_real_news_fact_check(search_text)
+        context_message = get_dynamic_message(prediction)
 
         return render_template("upload.html",
                             prediction=prediction,
                             confidence=confidence,
                             submitted_text=extracted_text,
-                            real_news_context=real_news_context)
+                            real_news_context=real_news_context,
+                            context_message=context_message)
 
     # 🔴 GET request always clean
     return render_template("upload.html",
