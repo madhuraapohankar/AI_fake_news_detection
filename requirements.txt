@@ -10,3 +10,4 @@ Pillow
 SpeechRecognition
 moviepy
 pydub
+PyPDF2
