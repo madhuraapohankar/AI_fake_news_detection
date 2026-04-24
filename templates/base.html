@@ -20,12 +20,25 @@
 
 <!-- ================= NAVBAR ================= -->
 <nav class="navbar">
-    <div class="nav-title">🧠 Fake News AI</div>
+    <a href="/" class="nav-logo-link">
+        <div class="nav-title">🧠 Fake News AI</div>
+    </a>
 
     <div class="nav-right">
 
         <!-- 🌙 Theme Toggle -->
-        <button id="themeToggle" type="button">🌙</button>
+        <!-- 🌙 Premium Theme Toggle -->
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="themeToggle">
+                <input type="checkbox" id="themeToggle" />
+                <div class="slider-wrapper">
+                    <div class="slider-dot">
+                        <span class="sun">☀️</span>
+                        <span class="moon">🌙</span>
+                    </div>
+                </div>
+            </label>
+        </div>
 
         <div class="nav-links">
 

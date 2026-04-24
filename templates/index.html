@@ -3,38 +3,45 @@
 
 <div class="card">
 
-    <!-- About Button (Optional Top Right Style) -->
     <div style="text-align: right; margin-bottom: 10px;">
-        <a href="{{ url_for('about') }}" class="about-link">
-            ℹ️ About Project
-        </a>
+        <a href="{{ url_for('about') }}" class="about-link">ℹ️ About Project</a>
     </div>
 
     <h1 class="title">🧠 AI News Verification</h1>
     <p class="subtitle">
-        Enter any news article or claim below to verify its authenticity with AI.
+        Ask anything — past news, latest headlines, rumors, or facts. I'll verify it like a senior journalist.
     </p>
 
     <form action="{{ url_for('predict') }}" method="POST">
-
         <input type="hidden" name="source_page" value="home">
-
         <textarea
             name="news"
-            placeholder="Paste news article here..."
+            placeholder="Ask me anything about news...&#10;&#10;Examples:&#10;• Did India win the 2025 Cricket World Cup?&#10;• Is it true that WhatsApp is shutting down?&#10;• Paste any news headline to verify..."
             required
         ></textarea>
-
-        <button type="submit" class="detect-btn">
-            🔍 Detect News
-        </button>
-
+        <button type="submit" class="detect-btn">🔍 Verify News</button>
     </form>
 
-    <!-- Loader -->
     <div id="loader" class="loader hidden"></div>
 
-    <!-- Legacy result cards removed -->
+    <!-- SUGGESTED QUESTIONS -->
+    <div class="suggested-questions">
+        <p style="opacity: 0.6; font-size: 0.9em; margin-bottom: 10px;">💡 Try asking:</p>
+        <div class="suggestion-chips">
+            <form action="{{ url_for('predict') }}" method="POST" style="display: inline;">
+                <input type="hidden" name="news" value="Is India's economy growing in 2026?">
+                <button type="submit" class="suggestion-chip">Is India's economy growing?</button>
+            </form>
+            <form action="{{ url_for('predict') }}" method="POST" style="display: inline;">
+                <input type="hidden" name="news" value="Did NASA find water on Mars?">
+                <button type="submit" class="suggestion-chip">Did NASA find water on Mars?</button>
+            </form>
+            <form action="{{ url_for('predict') }}" method="POST" style="display: inline;">
+                <input type="hidden" name="news" value="Is WhatsApp shutting down in India?">
+                <button type="submit" class="suggestion-chip">Is WhatsApp shutting down?</button>
+            </form>
+        </div>
+    </div>
 
 </div>
 

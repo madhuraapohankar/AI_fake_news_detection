@@ -6,10 +6,11 @@ if (window.history.replaceState) {
 document.addEventListener("DOMContentLoaded", function () {
     console.log("✅ script loaded");
 
-    const btn = document.getElementById("themeToggle");
+    // Use checkbox for premium toggle
+    const toggleInput = document.getElementById("themeToggle");
 
-    if (!btn) {
-        console.error("❌ themeToggle button NOT found");
+    if (!toggleInput) {
+        console.error("❌ themeToggle input NOT found");
         return;
     }
 
@@ -18,22 +19,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (savedTheme === "light") {
         document.body.classList.add("light-mode");
-        btn.textContent = "☀️";
+        toggleInput.checked = true;
     } else {
-        btn.textContent = "🌙";
+        document.body.classList.remove("light-mode");
+        toggleInput.checked = false;
     }
 
-    // Toggle click
-    btn.addEventListener("click", function () {
-        console.log("✅ toggle clicked");
+    // Toggle change
+    toggleInput.addEventListener("change", function () {
+        console.log("✅ toggle changed");
 
-        document.body.classList.toggle("light-mode");
-
-        if (document.body.classList.contains("light-mode")) {
-            btn.textContent = "☀️";
+        if (this.checked) {
+            document.body.classList.add("light-mode");
             localStorage.setItem("theme", "light");
         } else {
-            btn.textContent = "🌙";
+            document.body.classList.remove("light-mode");
             localStorage.setItem("theme", "dark");
         }
     });

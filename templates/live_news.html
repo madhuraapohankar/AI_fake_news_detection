@@ -3,111 +3,67 @@
 
 <div class="live-container">
 
+    <!-- SCROLLING TICKER (Aaj Tak Style) -->
+    {% if ticker_headlines %}
+    <div class="news-ticker-wrapper">
+        <div class="ticker-label">🔴 BREAKING</div>
+        <div class="ticker-content">
+            <div class="ticker-scroll">
+                {% for t in ticker_headlines %}
+                <span class="ticker-item">{{ t.title }} &nbsp;|&nbsp; </span>
+                {% endfor %}
+                {% for t in ticker_headlines %}
+                <span class="ticker-item">{{ t.title }} &nbsp;|&nbsp; </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="page-header">
         <div class="page-title">📰 Live News Detection</div>
-        <div class="page-subtitle">
-            Paste latest news and let AI verify authenticity
-        </div>
+        <div class="page-subtitle">Real-time headlines verified by AI</div>
     </div>
 
+    <!-- CATEGORY FILTER -->
+    <div class="category-filter">
+        {% for cat in categories %}
+        <a href="?category={{ cat }}"
+           class="category-btn {% if cat == selected_category %}active{% endif %}">
+            {% if cat == 'india' %}🇮🇳{% elif cat == 'world' %}🌍{% elif cat == 'politics' %}🏛️{% elif cat == 'sports' %}⚽{% elif cat == 'bollywood' %}🎬{% elif cat == 'technology' %}💻{% elif cat == 'business' %}📈{% endif %}
+            {{ cat | capitalize }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- NEWS INPUT -->
     <div class="premium-card">
-
-        <!-- ✅ FIXED FORM -->
         <form method="POST" action="{{ url_for('predict') }}">
-            
-            <!-- IMPORTANT -->
             <input type="hidden" name="source_page" value="live_news">
-
-            <select name="category" required>
-                <option value="">Select Category</option>
-                <option>National</option>
-                <option>International</option>
-                <option>Political</option>
-                <option>Sports</option>
-                <option>Bollywood</option>
-                <option>Global</option>
-            </select>
-
-            <textarea 
-                name="news" 
-                placeholder="Paste live news here..." 
-                required
-            ></textarea>
-
-            <button type="submit">🔍 Detect News</button>
+            <textarea name="news" placeholder="Paste any news headline here to instantly verify..." required></textarea>
+            <button type="submit">🔍 Verify This News</button>
         </form>
-
-        <!-- ============================= -->
-        <!-- ✅ RESULT SECTION (NEW ADDED) -->
-        <!-- ============================= -->
-
-        {% if prediction %}
-        <div class="result-box 
-            {% if 'Fake' in prediction %}result-fake
-            {% elif 'Real' in prediction %}result-real
-            {% endif %}">
-
-            {% if submitted_text %}
-            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-style: italic; font-size: 0.95em; border-left: 4px solid rgba(255,255,255,0.2); word-wrap: break-word; text-align: left;">
-                "{{ submitted_text }}"
-            </div>
-            {% endif %}
-
-            <h2>{{ prediction }}</h2>
-            <p><strong>Confidence:</strong> {{ confidence }}%</p>
-
-            {% if real_news_context %}
-            <div style="background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 8px; text-align: left;">
-                <h4 style="color: #4ade80; font-size: 1.1em; margin-bottom: 5px;">🚨 This is wrong. Here is the real news:</h4>
-                <p style="font-size: 0.95em; margin-bottom: 8px;"><strong><a href="{{ real_news_context.url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ real_news_context.title }}</a></strong></p>
-                <p style="font-size: 0.85em; opacity: 0.9; margin-bottom: 5px;">{{ real_news_context.description }}</p>
-                <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 0;">Source: {{ real_news_context.source }}</p>
-            </div>
-            {% endif %}
-
-            <hr style="margin:15px 0; opacity:0.2;">
-
-            <p><strong>Model Accuracy:</strong> {{ accuracy }}%</p>
-            <p><strong>Dataset Size:</strong> {{ dataset_size }} articles</p>
-            <p><strong>Algorithm:</strong> {{ algorithm }}</p>
-
-        </div>
-        {% endif %}
-
-        {% if live_articles %}
-        <hr style="margin: 30px 0; border: 1px solid rgba(255,255,255,0.1);">
-        <h3 style="margin-bottom: 20px; font-size: 1.5rem; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.2);">🔴 Top Live Headlines</h3>
-        <div class="articles-list" style="display: flex; flex-direction: column; gap: 15px;">
-            {% for article in live_articles %}
-            <div class="result-box 
-                {% if article.prediction == 'Fake News' %}result-fake
-                {% else %}result-real{% endif %}" 
-                style="margin: 0; text-align: left; padding: 20px; border-radius: 12px; transition: transform 0.2s ease;">
-                
-                <h4 style="margin-bottom: 8px; font-size: 1.2rem; line-height: 1.4;">
-                    <a href="{{ article.url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ article.title }}</a>
-                </h4>
-                
-                <p style="font-size: 0.95rem; margin-bottom: 15px; opacity: 0.8; line-height: 1.5;">
-                    {{ article.description }}
-                </p>
-                
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9rem; align-items: center;">
-                    <span style="opacity: 0.7;">📰 {{ article.source }}</span>
-                    <span style="background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
-                        {% if article.prediction == 'Fake News' %}🚨{% else %}✅{% endif %} 
-                        {{ article.prediction }} ({{ article.confidence }}%)
-                    </span>
-                </div>
-            </div>
-            {% endfor %}
-            {% if not live_articles %}
-            <p style="text-align: center; opacity: 0.6;">No live news returned or missing API key.</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
     </div>
+
+    <!-- LIVE ARTICLES -->
+    {% if live_articles %}
+    <h3 class="section-heading">🔴 {{ selected_category | capitalize }} Headlines</h3>
+    <div class="live-articles-grid">
+        {% for article in live_articles %}
+        <div class="live-article-card">
+            <div class="article-header">
+                <a href="{{ article.url }}" target="_blank" class="article-title">{{ article.title }}</a>
+            </div>
+            <div class="article-footer">
+                <span class="source-pill trust-{{ article.trust_level }}">{{ article.source }}</span>
+                <span class="trust-indicator">{{ article.trust_score }}% trust</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align: center; opacity: 0.6; margin-top: 30px;">No headlines available. Try a different category.</p>
+    {% endif %}
 
 </div>
 

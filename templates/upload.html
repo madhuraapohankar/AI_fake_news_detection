@@ -3,50 +3,51 @@
 
 <div class="live-container">
 
-    <!-- PAGE HEADER -->
     <div class="page-header">
-        <div class="page-title">📤 Upload News File</div>
+        <div class="page-title">📤 Upload News Screenshot</div>
         <div class="page-subtitle">
-            Upload a PDF, TXT, or Image file (JPG, PNG) and let AI verify authenticity
+            Upload a news image (JPG, PNG) and AI will extract text, detect social media, and verify authenticity
         </div>
     </div>
 
-    <!-- CARD -->
     <div class="premium-card">
-
-        <!-- UPLOAD FORM -->
         <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".pdf,.txt,.jpg,.jpeg,.png" required>
-            <button type="submit">🔍 Analyze File</button>
+            <div class="upload-zone">
+                <div class="upload-icon">📷</div>
+                <p>Drag & drop or click to upload</p>
+                <p style="font-size: 0.85em; opacity: 0.6;">Supports: JPG, JPEG, PNG</p>
+                <input type="file" name="file" accept=".jpg,.jpeg,.png" required>
+            </div>
+            <button type="submit">🔍 Analyze Screenshot</button>
         </form>
 
-        <!-- RESULT (ONLY AFTER PREDICTION) -->
-        {% if prediction %}
-        <div class="result-box 
-            {% if 'Fake' in prediction %}result-fake
-            {% elif 'Real' in prediction %}result-real
-            {% endif %}">
-
-            {% if submitted_text %}
-            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-style: italic; font-size: 0.95em; border-left: 4px solid rgba(255,255,255,0.2); word-wrap: break-word; text-align: left;">
-                "{{ submitted_text }}"
-            </div>
-            {% endif %}
-
-            <h2>{{ prediction }}</h2>
-            <p><strong>Confidence:</strong> {{ confidence }}%</p>
-
-            {% if real_news_context and context_message %}
-            <div style="background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 8px; text-align: left;">
-                <h4 style="color: #4ade80; font-size: 1.1em; margin-bottom: 5px;">{{ context_message }}</h4>
-                <p style="font-size: 0.95em; margin-bottom: 8px;"><strong><a href="{{ real_news_context.url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ real_news_context.title }}</a></strong></p>
-                <p style="font-size: 0.85em; opacity: 0.9; margin-bottom: 5px;">{{ real_news_context.description }}</p>
-                <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 0;">Source: {{ real_news_context.source }}</p>
-            </div>
-            {% endif %}
+        {% if error %}
+        <div class="social-media-warning" style="margin-top: 20px;">
+            <span>⚠️</span>
+            <span>{{ error }}</span>
         </div>
         {% endif %}
+    </div>
 
+    <div class="upload-features" style="margin-top: 30px;">
+        <div class="feature-grid">
+            <div class="feature-item">
+                <span>📱</span>
+                <span>Social Media Detection</span>
+            </div>
+            <div class="feature-item">
+                <span>🔍</span>
+                <span>Text Extraction</span>
+            </div>
+            <div class="feature-item">
+                <span>✅</span>
+                <span>Fact Verification</span>
+            </div>
+            <div class="feature-item">
+                <span>⚠️</span>
+                <span>Manipulation Detection</span>
+            </div>
+        </div>
     </div>
 
 </div>

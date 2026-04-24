@@ -1,18 +1,174 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
-    <h1 class="title">🔍 Analysis Result</h1>
-    
-    <div class="about-card">
-        <pre>{{ result }}</pre>
+<div class="chat-container">
+
+    <!-- USER QUERY BUBBLE -->
+    <div class="chat-bubble user-bubble">
+        <div class="bubble-avatar">👤</div>
+        <div class="bubble-content">
+            <div class="bubble-label">You asked:</div>
+            <div class="bubble-text">{{ submitted_text }}</div>
+        </div>
     </div>
 
+    <!-- AI RESPONSE BUBBLE -->
+    <div class="chat-bubble ai-bubble">
+        <div class="bubble-avatar">🤖</div>
+        <div class="bubble-content">
+
+            <!-- CREDIBILITY BADGE + VERDICT -->
+            <div class="verdict-banner
+                {% if result.verdict == 'REAL' %}real-verdict
+                {% elif result.verdict == 'FAKE' %}fake-verdict
+                {% elif result.verdict == 'MISLEADING' %}misleading-verdict
+                {% else %}unverified-verdict{% endif %}">
+                <div class="verdict-left">
+                    <div class="verdict-label">AI VERDICT</div>
+                    <div class="verdict-text">{{ result.verdict }}</div>
+                </div>
+                <div class="credibility-badge">{{ result.badge }}</div>
+            </div>
+
+            <!-- SOCIAL MEDIA WARNING -->
+            {% if result.social_media_warning %}
+            <div class="social-media-warning">
+                <span>📱</span>
+                <span>{{ result.social_media_warning }}</span>
+            </div>
+            {% endif %}
+
+            <!-- CONFIDENCE WITH BREAKDOWN -->
+            <div class="confidence-section">
+                <div class="confidence-gauge-container">
+                    <div class="confidence-info">
+                        <span>Identification Confidence</span>
+                        <span class="conf-val">{{ result.confidence }}%</span>
+                    </div>
+                    <div class="progress-bar-premium">
+                        <div class="progress-fill
+                            {% if result.confidence >= 80 %}fill-high
+                            {% elif result.confidence >= 50 %}fill-medium
+                            {% else %}fill-low{% endif %}"
+                            style="width: {{ result.confidence }}%;"></div>
+                    </div>
+                </div>
+
+                {% if result.confidence_breakdown %}
+                <div class="confidence-breakdown">
+                    <div class="breakdown-label">Based on:</div>
+                    <div class="breakdown-items">
+                        <span class="breakdown-item">✔ {{ result.confidence_breakdown.trusted_sources_found }} trusted sources</span>
+                        <span class="breakdown-item">✔ {{ result.confidence_breakdown.consistency }}</span>
+                        <span class="breakdown-item">{% if result.confidence_breakdown.contradictions == 'None found' or result.confidence_breakdown.contradictions == 'None' %}✔{% else %}⚠️{% endif %} {{ result.confidence_breakdown.contradictions }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- AI ANSWER -->
+            {% if result.answer %}
+            <div class="ai-section answer-section">
+                <h4>🤖 AI Analysis</h4>
+                <p>{{ result.answer }}</p>
+            </div>
+            {% endif %}
+
+            <!-- DETAILED EXPLANATION (Bullet Points) -->
+            {% if result.explanation %}
+            <div class="ai-section explanation-section">
+                <h4>📝 Detailed Explanation</h4>
+                <ul class="explanation-list">
+                    {% for point in result.explanation %}
+                    <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- CORRECT INFORMATION (if FAKE/MISLEADING) -->
+            {% if result.correct_info %}
+            <div class="ai-section correct-info-box">
+                <h4>✅ Here is the Real Information</h4>
+                <p>{{ result.correct_info }}</p>
+            </div>
+            {% endif %}
+
+            <!-- TIMELINE -->
+            {% if result.timeline and result.timeline|length > 0 %}
+            <div class="ai-section timeline-section">
+                <h4>📅 Timeline</h4>
+                <div class="timeline-container">
+                    {% for entry in result.timeline %}
+                    <div class="timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <span class="timeline-date">{{ entry.date }}</span>
+                            <span class="timeline-event">{{ entry.event }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- VIDEO PROOF (Top 3) -->
+            {% if youtube_links %}
+            <div class="ai-section">
+                <h4>🎥 Video Proof</h4>
+                <div class="youtube-links">
+                    {% for yt in youtube_links %}
+                    <a href="{{ yt.url }}" target="_blank" class="yt-link-btn">{{ yt.label }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- NEWS SOURCES WITH TRUST INDICATORS -->
+            {% if news_context %}
+            <hr style="opacity: 0.1; margin: 25px 0;">
+            <div class="ai-section">
+                <h4>📰 Verified News Sources</h4>
+                <div class="sources-list">
+                    {% for news in news_context %}
+                    <div class="source-card">
+                        <div class="source-header">
+                            <a href="{{ news.url }}" target="_blank" class="source-title">{{ news.title }}</a>
+                            <div class="source-meta">
+                                <span class="source-pill trust-{{ news.trust_level }}">{{ news.source }}</span>
+                                <span class="trust-score">{{ news.trust_score }}% trust</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- RELATED QUESTIONS -->
+    {% if result.related_questions %}
+    <div class="related-questions-section">
+        <h4>💡 Related Questions</h4>
+        <div class="related-questions-list">
+            {% for q in result.related_questions %}
+            <form action="{{ url_for('predict') }}" method="POST" class="related-q-form">
+                <input type="hidden" name="news" value="{{ q }}">
+                <button type="submit" class="related-q-btn">{{ q }}</button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div style="text-align: center; margin-top: 30px;">
-        <a href="{{ url_for('home') }}" class="detect-btn" style="text-decoration: none; display: inline-block;">
-            ⬅️ Back to Analysis
+        <a href="{{ url_for('news_analyzer') }}" class="detect-btn" style="text-decoration: none; display: inline-block;">
+            ⬅️ Analyze More News
         </a>
     </div>
+
 </div>
 
 {% endblock %}

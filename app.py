@@ -1,948 +1,684 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
+import requests
+import xml.etree.ElementTree as ET
+import urllib.parse
+import re
+import json
 from datetime import datetime, timedelta
-from functools import wraps
-from werkzeug.utils import secure_filename
-from itsdangerous import URLSafeTimedSerializer
-from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
-from authlib.integrations.flask_client import OAuth
-import google.generativeai as genai
 from dotenv import load_dotenv
+import google.generativeai as genai
+from werkzeug.utils import secure_filename
+from PIL import Image
 
-# Load Environment Variables
-load_dotenv()
+# ==============================
+# LOAD ENV
+# ==============================
+load_dotenv(override=True)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-flash-latest")
 
-load_dotenv()
 app = Flask(__name__)
-
+app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key_123")
 
 # ==============================
-# SESSION SECURITY
+# FLASK-LOGIN SETUP
 # ==============================
-app.secret_key = os.getenv("SECRET_KEY")
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-# ==============================
-# Create User Model
-# ==============================
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
+class User(UserMixin):
+    def __init__(self, id, email=None):
+        self.id = id
+        self.email = email or id
 
-# ✅ ADD IT RIGHT HERE
-with app.app_context():
-    db.create_all()
-
-# ==============================
-# Add User Loader
-# ==============================
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User(user_id)
 
 # ==============================
-# PASSWORD RESET CONFIG
+# FILE UPLOAD CONFIG
 # ==============================
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
-
-mail = Mail(app)
-serializer = URLSafeTimedSerializer(app.secret_key)
-
-# ==============================
-# GOOGLE OAUTH
-# ==============================
-oauth = OAuth(app)
-
-google = oauth.register(
-    name='google',
-    client_id= os.getenv("CLIENT_ID"),
-    client_secret= os.getenv("CLIENT_SECRET"),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'},
-)
-
-@app.route("/google-login")
-def google_login():
-    redirect_uri = url_for("google_authorize", _external=True)
-    return google.authorize_redirect(redirect_uri)
-
-@app.route("/authorize")
-def google_authorize():
-    token = google.authorize_access_token()
-    user_info = token.get("userinfo")
-
-    email = user_info["email"]
-    name = user_info.get("name", "Google User")
-
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, role FROM users WHERE email=?", (email,))
-    user = cursor.fetchone()
-
-    if not user:
-        cursor.execute(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            (name, email, generate_password_hash("google_auth"), "user"),
-        )
-        conn.commit()
-
-        cursor.execute("SELECT id, role FROM users WHERE email=?", (email,))
-        user = cursor.fetchone()
-
-        role = "user"
-    else:
-        role = user[1] or "user"
-
-    conn.close()
-
-    # ✅ REQUIRED CHANGE → Login with Flask-Login
-    flask_user = User.query.filter_by(email=email).first()
-
-    if not flask_user:
-        flask_user = User(
-            email=email,
-            password=generate_password_hash("google_auth")
-        )
-        db.session.add(flask_user)
-        db.session.commit()
-
-    login_user(flask_user)
-
-    return redirect(url_for("home"))
-
-# ==============================
-# LOGIN REQUIRED DECORATOR
-# ==============================
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user" not in session:
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# ==============================
-# DATABASE INIT
-# ==============================
-def init_db():
-    os.makedirs("database", exist_ok=True)
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            text TEXT,
-            prediction TEXT,
-            confidence REAL,
-            verdict TEXT,
-            explanation TEXT,
-            correct_info TEXT,
-            sources TEXT,
-            video_link TEXT,
-            warning TEXT,
-            understanding TEXT,
-            created_at TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            email TEXT UNIQUE,
-            password TEXT,
-            role TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-# ==============================
-# HELPER FUNCTIONS
-# ==============================
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-init_db()
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==============================
-# NEWS ANALYZER
+# TRUSTED SOURCES ENGINE
 # ==============================
-@app.route("/news-analyzer")
-@login_required
-def news_analyzer():
-    return render_template("index.html")
+TRUSTED_SOURCES = {
+    "reuters": 95, "bbc": 95, "bbc news": 95,
+    "the hindu": 90, "ndtv": 88, "the guardian": 92,
+    "ap news": 95, "associated press": 95,
+    "the times of india": 85, "india today": 85,
+    "the indian express": 88, "hindustan times": 85,
+    "the washington post": 90, "the new york times": 92,
+    "al jazeera": 85, "cnn": 82, "abc news": 85,
+    "france 24": 85, "dw news": 85,
+    "the economic times": 82, "mint": 82,
+    "news18": 78, "zee news": 75, "aaj tak": 78,
+    "republic": 70, "opindia": 55,
+    "the wire": 80, "scroll.in": 78, "the quint": 78,
+    "google news": 60,
+}
+
+def get_source_trust(source_name):
+    """Calculate trust score for a news source."""
+    if not source_name:
+        return 40, "unknown"
+    name = source_name.lower().strip()
+    for key, score in TRUSTED_SOURCES.items():
+        if key in name:
+            if score >= 90:
+                return score, "high"
+            elif score >= 75:
+                return score, "medium"
+            else:
+                return score, "low"
+    return 40, "unknown"
 
 # ==============================
-# HOME
+# GOOGLE NEWS FETCH (MULTI-SOURCE)
+# ==============================
+def fetch_google_news(query, locale="en-IN", country="IN", max_results=5):
+    """Fetch top articles from Google News RSS with trust scoring."""
+    articles = []
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://news.google.com/rss/search?q={encoded_query}&hl={locale}&gl={country}&ceid={country}:{locale.split('-')[0]}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        resp = requests.get(url, headers=headers, timeout=5)
+        root = ET.fromstring(resp.content)
+        items = root.findall("./channel/item")
+
+        for item in items[:max_results]:
+            title = item.find("title").text if item.find("title") is not None else ""
+            link = item.find("link").text if item.find("link") is not None else ""
+            source = item.find("source").text if item.find("source") is not None else "Google News"
+            pub_date = item.find("pubDate").text if item.find("pubDate") is not None else ""
+
+            trust_score, trust_level = get_source_trust(source)
+
+            articles.append({
+                "title": title,
+                "url": link,
+                "source": source,
+                "pub_date": pub_date,
+                "trust_score": trust_score,
+                "trust_level": trust_level
+            })
+    except Exception as e:
+        print("News fetch error:", e)
+    return articles
+
+
+import concurrent.futures
+
+def fetch_trusted_news(query):
+    """Fetch news prioritizing Reuters, BBC, The Hindu using parallel threading for speed."""
+    trusted_queries = [
+        f"{query} site:reuters.com OR site:bbc.com OR site:thehindu.com",
+        query
+    ]
+    all_articles = []
+    
+    # Run the internet searches concurrently (in parallel) to cut waiting time in half
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {executor.submit(fetch_google_news, q, max_results=5): q for q in trusted_queries}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                all_articles.extend(future.result())
+            except Exception as e:
+                print(f"Error in parallel news fetch: {e}")
+
+    # Deduplicate by title
+    seen = set()
+    unique = []
+    for a in all_articles:
+        if a["title"] not in seen:
+            seen.add(a["title"])
+            unique.append(a)
+            
+    # Sort by trust score (highest first)
+    unique.sort(key=lambda x: x["trust_score"], reverse=True)
+    return unique[:8]
+
+
+# ==============================
+# YOUTUBE VIDEO PROOF (TOP 3)
+# ==============================
+def get_youtube_links(query):
+    """Return top 3 YouTube search links filtered by news channels."""
+    base = "https://www.youtube.com/results?search_query="
+    encoded = urllib.parse.quote(query)
+    return [
+        {
+            "label": "📺 All News Coverage",
+            "url": f"{base}{encoded}+news+verified"
+        },
+        {
+            "label": "🔴 Reuters / BBC Coverage",
+            "url": f"{base}{encoded}+reuters+OR+bbc+news"
+        },
+        {
+            "label": "🇮🇳 Indian News Coverage",
+            "url": f"{base}{encoded}+ndtv+OR+india+today+news"
+        }
+    ]
+
+
+# ==============================
+# ADVANCED AI CORE
+# ==============================
+def ask_gemini_advanced(user_input, news_context="", is_image=False, image_warning=""):
+    """Advanced OpenAI prompt returning structured JSON."""
+    today_date = datetime.now().strftime("%B %d, %Y")
+    prompt = f"""You are a brilliant AI News Assistant — like ChatGPT but specialized in news verification.
+You can answer ANY question: past news, current events, rumors, historical facts, science, sports — ANYTHING.
+
+CURRENT DATE: {today_date} (Use this to understand "today", "yesterday", etc.)
+
+USER'S QUESTION (Or Image Details): {user_input}
+
+LIVE NEWS FROM TRUSTED SOURCES (Reuters, BBC, The Hindu, etc.):
+{news_context if news_context else "No live context available — use your own vast knowledge to answer."}
+
+{f"IMAGE ANALYSIS NOTE: {image_warning}" if image_warning else ""}
+{"INSTRUCTIONS FOR IMAGE: In your 'answer' field, MUST first briefly write what is in the image based on the provided description, then state your verdict and explain it." if is_image else ""}
+
+YOUR JOB:
+1. UNDERSTAND what the user is really asking (ignore typos, grammar mistakes)
+2. VERIFY the claim against trusted sources AND your own knowledge
+3. Give a clear, confident answer — don't be vague or generic
+4. If the news is FAKE → Clearly say it's FAKE and then tell them what the REAL truth is with evidence
+5. If the news is REAL → Confirm it's REAL and provide supporting evidence
+6. If MISLEADING → Explain what part is true and what's exaggerated/fake
+7. For general knowledge questions (history, science, etc.) → Answer directly and confidently
+
+IMPORTANT BEHAVIOR:
+- Be conversational and helpful, like a smart friend who knows everything about news
+- When something is FAKE, don't just say "fake" — explain WHY it's fake and provide the ACTUAL real news/facts
+- When something is REAL, celebrate it — "Yes! This is verified from multiple sources"
+- For historical facts (like "Did India get independence in 1947?") → Answer confidently from knowledge
+- For rumors/WhatsApp forwards → Debunk clearly with evidence
+- NEVER say generic things like "no evidence found" — always give SPECIFIC reasoning
+
+VERDICT OPTIONS:
+- REAL → Confirmed true from trusted sources or established facts
+- FAKE → Proven false — and YOU MUST provide the real/correct information
+- MISLEADING → Partially true but exaggerated, out of context, or AI-generated
+- NOT VERIFIED → Cannot confirm or deny with available information
+
+RESPOND IN THIS EXACT JSON FORMAT (no markdown, no code blocks, just raw JSON):
+{{
+    "verdict": "REAL or FAKE or MISLEADING or NOT VERIFIED",
+    "badge": "✔ Verified Fact or ⚠️ Needs Verification or ❌ Fake Claim",
+    "confidence": 85,
+    "confidence_breakdown": {{
+        "trusted_sources_found": 3,
+        "consistency": "All reports agree on this",
+        "contradictions": "None found"
+    }},
+    "answer": "A clear, direct, conversational answer in 2-4 sentences. If FAKE, clearly state what the truth actually is.",
+    "explanation": [
+        "Specific evidence point 1 with source names",
+        "Specific evidence point 2 explaining why this is real/fake/misleading",
+        "Any red flags or strong confirmations found"
+    ],
+    "correct_info": "If FAKE or MISLEADING: Write the ACTUAL real news/facts here clearly. Example: 'The real news is that India won the 2024 T20 World Cup, not lost it as claimed.' If REAL: leave as empty string.",
+    "social_media_warning": "Warning if this looks like a social media forward/screenshot. Empty string if not applicable.",
+    "timeline": [
+        {{"date": "Month Year", "event": "What actually happened"}},
+        {{"date": "Month Year", "event": "How the story developed"}}
+    ],
+    "related_questions": [
+        "Interesting follow-up question 1?",
+        "Interesting follow-up question 2?",
+        "Interesting follow-up question 3?"
+    ]
+}}
+
+REMEMBER:
+- You are NOT rigid. You are smart, flexible, and helpful.
+- Answer like ChatGPT — conversational, knowledgeable, and trustworthy.
+- If FAKE → Your "correct_info" field MUST contain the real truth. This is critical.
+- Always provide at least 2 timeline entries and exactly 3 related questions.
+"""
+    try:
+        response = model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.3}
+        )
+        return response.text
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Gemini Error: {error_msg}")
+        return json.dumps({
+            "verdict": "ERROR",
+            "badge": "⚠️ API Connection Error",
+            "confidence": 0,
+            "confidence_breakdown": {"trusted_sources_found": 0, "consistency": "Error", "contradictions": "N/A"},
+            "answer": f"Could not reach Gemini API. Error: {error_msg}",
+            "explanation": [
+                "The system failed to connect to Gemini API.",
+                f"Detailed Error: {error_msg}",
+                "Please make sure your API key in .env is correct."
+            ],
+            "correct_info": "",
+            "social_media_warning": "",
+            "timeline": [],
+            "related_questions": []
+        })
+
+
+def parse_ai_json(response_text):
+    """Parse OpenAI's JSON response into a structured dictionary."""
+    defaults = {
+        "verdict": "NOT VERIFIED",
+        "badge": "⚠️ Needs Verification",
+        "confidence": 50,
+        "confidence_breakdown": {
+            "trusted_sources_found": 0,
+            "consistency": "Unknown",
+            "contradictions": "Unknown"
+        },
+        "answer": "",
+        "explanation": [],
+        "correct_info": "",
+        "social_media_warning": "",
+        "timeline": [],
+        "related_questions": []
+    }
+
+    try:
+        # Clean up response - remove markdown code blocks if present
+        cleaned = response_text.strip()
+        cleaned = re.sub(r'^```json\s*', '', cleaned)
+        cleaned = re.sub(r'^```\s*', '', cleaned)
+        cleaned = re.sub(r'\s*```$', '', cleaned)
+        cleaned = cleaned.strip()
+
+        result = json.loads(cleaned)
+
+        # Merge with defaults
+        for key in defaults:
+            if key not in result:
+                result[key] = defaults[key]
+
+        # Ensure explanation is a list
+        if isinstance(result["explanation"], str):
+            result["explanation"] = [result["explanation"]]
+
+        # Ensure confidence is int
+        result["confidence"] = int(result.get("confidence", 50))
+
+        # Normalize verdict
+        v = str(result["verdict"]).upper().strip()
+        if "REAL" in v:
+            result["verdict"] = "REAL"
+        elif "FAKE" in v:
+            result["verdict"] = "FAKE"
+        elif "MISLEAD" in v:
+            result["verdict"] = "MISLEADING"
+        elif "ERROR" in v:
+            result["verdict"] = "ERROR"
+        else:
+            result["verdict"] = "NOT VERIFIED"
+
+        return result
+
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"JSON Parse Error: {e}")
+        print(f"Raw response: {response_text[:500]}")
+
+        # Fallback: regex parsing
+        result = dict(defaults)
+
+        verdict_match = re.search(r'"verdict"\s*:\s*"([^"]+)"', response_text, re.IGNORECASE)
+        conf_match = re.search(r'"confidence"\s*:\s*(\d+)', response_text)
+        answer_match = re.search(r'"answer"\s*:\s*"([^"]+)"', response_text)
+
+        if verdict_match:
+            result["verdict"] = verdict_match.group(1).strip().upper()
+        if conf_match:
+            result["confidence"] = int(conf_match.group(1))
+        if answer_match:
+            result["answer"] = answer_match.group(1).strip()
+
+        # Set badge based on verdict
+        v = result["verdict"]
+        if "REAL" in v:
+            result["badge"] = "✔ Verified Fact"
+        elif "FAKE" in v:
+            result["badge"] = "❌ Fake Claim"
+        else:
+            result["badge"] = "⚠️ Needs Verification"
+
+        return result
+
+
+# ==============================
+# VISION ANALYSIS
+# ==============================
+def analyze_image_with_vision(img):
+    """Analyze image using Gemini Vision for social media detection."""
+    try:
+        response = model.generate_content([
+            """Analyze this image carefully:
+1. Provide a detailed description of what is in the image.
+2. Extract ALL text from the image.
+3. Determine if this is a social media screenshot (Instagram, Twitter/X, WhatsApp, Facebook)
+4. Check for signs of manipulation: cropped headlines, edited text, fake UI elements
+5. Identify the original source if visible
+6. Generate a short 3-5 word news search query to verify the core claim (e.g. 'Raghav Chadha BJP join')
+
+Return in this format:
+IMAGE_DESCRIPTION: [detailed description of the visual content]
+EXTRACTED_TEXT: [all text from image, or 'None' if no text]
+SEARCH_QUERY: [short search query]
+IS_SOCIAL_MEDIA: [yes/no]
+PLATFORM: [Instagram/Twitter/WhatsApp/Facebook/News Website/Unknown]
+MANIPULATION_SIGNS: [list any signs of editing or cropping]
+SOURCE: [original source if visible]""",
+            img
+        ])
+        return response.text
+    except Exception as e:
+        print(f"Vision Error: {e}")
+        return "IMAGE_DESCRIPTION: Could not analyze image\nEXTRACTED_TEXT: Could not analyze image\nSEARCH_QUERY: none\nIS_SOCIAL_MEDIA: unknown"
+
+
+def parse_vision_response(vision_text):
+    """Parse vision response into structured data."""
+    clean_text = vision_text.replace("**", "").replace("__", "")
+    extracted_text = ""
+    image_description = ""
+    search_query = ""
+    is_social_media = False
+    platform = "Unknown"
+    warning = ""
+
+    desc_match = re.search(r"IMAGE[ _]DESCRIPTION:\s*(.*?)(?=EXTRACTED[ _]TEXT:|$)", clean_text, re.DOTALL | re.IGNORECASE)
+    text_match = re.search(r"EXTRACTED[ _]TEXT:\s*(.*?)(?=SEARCH[ _]QUERY:|IS[ _]SOCIAL[ _]MEDIA:|$)", clean_text, re.DOTALL | re.IGNORECASE)
+    query_match = re.search(r"SEARCH[ _]QUERY:\s*(.*?)(?=IS[ _]SOCIAL[ _]MEDIA:|$)", clean_text, re.DOTALL | re.IGNORECASE)
+    social_match = re.search(r"IS[ _]SOCIAL[ _]MEDIA:\s*(yes|no)", clean_text, re.IGNORECASE)
+    platform_match = re.search(r"PLATFORM:\s*(.+?)(?=MANIPULATION|SOURCE|$)", clean_text, re.IGNORECASE)
+    manip_match = re.search(r"MANIPULATION[ _]SIGNS:\s*(.+?)(?=SOURCE:|$)", clean_text, re.DOTALL | re.IGNORECASE)
+
+    if desc_match:
+        image_description = desc_match.group(1).strip()
+    if text_match:
+        extracted_text = text_match.group(1).strip()
+    if query_match:
+        search_query = query_match.group(1).strip()
+    if social_match and social_match.group(1).lower() == "yes":
+        is_social_media = True
+    if platform_match:
+        platform = platform_match.group(1).strip()
+
+    if is_social_media:
+        warning = f"⚠️ This appears to be a {platform} screenshot (low reliability). Social media posts are often unverified."
+    if manip_match:
+        signs = manip_match.group(1).strip()
+        if signs and "none" not in signs.lower():
+            warning += f" Potential manipulation detected: {signs}"
+
+    return image_description, extracted_text, search_query, is_social_media, warning
+
+
+# ==============================
+# ROUTES
 # ==============================
 @app.route("/")
-@login_required
 def home():
     return render_template("dashboard.html")
 
+
+@app.route("/news-analyzer")
+def news_analyzer():
+    return render_template("index.html")
+
+
 # ==============================
-# LOGIN
+# TEXT PREDICTION (MAIN AI)
 # ==============================
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "").strip()
-        role = request.form.get("role", "user").strip().lower()
-        remember = request.form.get("remember")
-
-        if not email or not password:
-            return render_template("login.html", error="All fields required")
-
-        conn = sqlite3.connect("database/fake_news.db")
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT id, name, email, password, role FROM users WHERE email=?",
-            (email,),
-        )
-
-        user = cursor.fetchone()
-
-        if user:
-            stored_password = user[3]
-
-            if not check_password_hash(stored_password, password):
-                conn.close()
-                return render_template("login.html", error="Invalid credentials")
-
-            db_role = (user[4] or "user").lower()
-
-            if db_role != role:
-                conn.close()
-                return render_template("login.html", error="Wrong role selected")
-
-            conn.close()
-
-            # ✅ REQUIRED CHANGE → Use Flask-Login
-            flask_user = User.query.filter_by(email=email).first()
-
-            if not flask_user:
-                flask_user = User(
-                    email=email,
-                    password=stored_password
-                )
-                db.session.add(flask_user)
-                db.session.commit()
-
-            login_user(flask_user, remember=bool(remember))
-
-            if db_role == "admin":
-                return redirect(url_for("admin_dashboard"))
-
-            return redirect(url_for("home"))
-
-        conn.close()
-        return render_template("login.html", error="Invalid credentials")
-
-    return render_template("login.html")
-
-def get_real_news_fact_check(text):
-    import urllib.parse
-    # Get first 8 words to formulate a search query
-    query = " ".join(str(text).split()[:8])
-    if not query:
-        return None
+@app.route("/predict", methods=["GET", "POST"])
+def predict():
+    if request.method == "GET":
+        return redirect(url_for("home"))
         
-    encoded_query = urllib.parse.quote(query)
-    news_api_key = os.getenv("NEWS_API_KEY", "")
-    
-    if news_api_key:
-        try:
-            url = f"https://newsapi.org/v2/everything?q={encoded_query}&language=en&sortBy=relevancy&apiKey={news_api_key}"
-            resp = requests.get(url).json()
-            if resp.get("status") == "ok" and resp.get("articles"):
-                art = resp["articles"][0]
-                return {
-                    "title": art.get("title", ""),
-                    "description": art.get("description", ""),
-                    "url": art.get("url", ""),
-                    "source": art.get("source", {}).get("name", "Unknown Source")
-                }
-        except Exception as e:
-            print("Fact Check Error:", e)
-    import xml.etree.ElementTree as ET
-    try:
-        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        resp = requests.get(rss_url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            root = ET.fromstring(resp.content)
-            items = root.findall('./channel/item')
-            if items:
-                title = items[0].find('title').text if items[0].find('title') is not None else ""
-                link = items[0].find('link').text if items[0].find('link') is not None else ""
-                source = items[0].find('source').text if items[0].find('source') is not None else "Google News RSS"
-                return {
-                    "title": title,
-                    "description": "Read the verified news article directly from the publisher.",
-                    "url": link,
-                    "source": source
-                }
-    except Exception as e:
-        print("RSS Fact Check Error:", e)
-        
-    # Dummy fallback response if no API key and RSS fails
-    return {
-        "title": f"Verified Facts Regarding: {query.title()}",
-        "description": f"The claim you submitted has been flagged as misleading. Independent fact-checkers state that the real events surrounding '{query}' differ significantly from your text. Please refer to official sources.",
-        "url": "https://www.reuters.com/fact-check",
-        "source": "Fact Check Verification Network (Demo Mode)"
-    }
-
-    conn.close()
-    return redirect(url_for("login"))
-
-# ==============================
-# FORGOT PASSWORD (SECURE)
-# ==============================
-@app.route("/forgot-password", methods=["GET", "POST"])
-def forgot_password():
-
-    if request.method == "POST":
-        email = request.form.get("email", "").strip()
-
-        conn = sqlite3.connect("database/fake_news.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT email FROM users WHERE email=?", (email,))
-        user = cursor.fetchone()
-        conn.close()
-
-        if user:
-            token = serializer.dumps(email, salt="password-reset-salt")
-            reset_link = url_for("reset_password", token=token, _external=True)
-
-            msg = Message(
-                "Password Reset",
-                sender=app.config['MAIL_USERNAME'],
-                recipients=[email]
-            )
-            msg.body = f"Click to reset password:\n{reset_link}"
-            mail.send(msg)
-
-        return render_template(
-            "forgot_password.html",
-            message="If this email exists, reset instructions sent."
-        )
-
-    return render_template("forgot_password.html")
-
-# ==============================
-# RESET PASSWORD
-# ==============================
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-
-    try:
-        email = serializer.loads(
-            token,
-            salt="password-reset-salt",
-            max_age=3600
-        )
-    except:
-        return "Reset link expired"
-
-    if request.method == "POST":
-        new_password = request.form.get("password").strip()
-
-        conn = sqlite3.connect("database/fake_news.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE users SET password=? WHERE email=?",
-            (new_password, email)
-        )
-        conn.commit()
-        conn.close()
-
-        return redirect(url_for("login"))
-
-    return render_template("reset_password.html")
-
-# ==============================
-# LOGOUT
-# ==============================
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# ==============================
-# ADMIN DASHBOARD
-# ==============================
-@app.route("/admin-dashboard")
-@login_required
-def admin_dashboard():
-
-    if session.get("role") != "admin":
+    user_input = request.form.get("news", "").strip()
+    if not user_input:
         return redirect(url_for("home"))
 
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
+    # Fetch trusted news context
+    news_list = fetch_trusted_news(user_input)
+    news_text = "\n".join([
+        f"- {a['title']} (Source: {a['source']}, Trust: {a['trust_score']}%)"
+        for a in news_list
+    ])
 
-    # Total users
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
+    # Ask AI
+    raw_response = ask_gemini_advanced(user_input, news_text)
+    result = parse_ai_json(raw_response)
 
-    # Total predictions
-    cursor.execute("SELECT COUNT(*) FROM history")
-    total_predictions = cursor.fetchone()[0]
-
-    # Recent 5 predictions (Simplified Verdict extraction)
-    cursor.execute("""
-        SELECT text, verdict, created_at 
-        FROM history 
-        ORDER BY id DESC 
-        LIMIT 5
-    """)
-    recent_activity = cursor.fetchall()
-
-    conn.close()
+    # YouTube proof links
+    youtube_links = get_youtube_links(user_input)
 
     return render_template(
-        "admin_dashboard.html",
-        total_users=total_users,
-        total_predictions=total_predictions,
-        recent_activity=recent_activity
+        "result.html",
+        result=result,
+        news_context=news_list,
+        youtube_links=youtube_links,
+        submitted_text=user_input
     )
 
-# ==============================
-# USER ROUTES
-# ==============================
-# ==============================
-# AI INTELLIGENCE
-# ==============================
-def ask_gemini(user_input):
-    prompt = f"""
-You are a factual AI assistant.
-
-User query: {user_input}
-
-Rules:
-- If it is a known fact → say REAL
-- If clearly false → say FAKE
-- If unsure → say NOT VERIFIED
-- Do not guess.
-
-Format:
-Verdict:
-Explanation:
-Correct Information:
-"""
-    return model.generate_content(prompt).text
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    user_input = request.form.get('news') or request.form.get('news_text')
-    if not user_input:
-        return redirect(url_for('home'))
-
-    result = ask_gemini(user_input)
-    return render_template('result.html', result=result)
 
 # ==============================
-# RESET PASSWORD
+# IMAGE UPLOAD
 # ==============================
-
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    try:
-        email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
-    except:
-        return "The reset link is invalid or expired."
-
-    if request.method == "POST":
-        new_password = request.form.get("password")
-
-        hashed_password = generate_password_hash(new_password)
-
-        # ✅ UPDATE fake_news.db
-        conn = sqlite3.connect("database/fake_news.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE users SET password=? WHERE email=?",
-            (hashed_password, email),
-        )
-        conn.commit()
-        conn.close()
-
-        # ✅ UPDATE users.db (Flask-Login DB)
-        flask_user = User.query.filter_by(email=email).first()
-        if flask_user:
-            flask_user.password = hashed_password
-            db.session.commit()
-
-        return "Password updated successfully!"
-
-    return render_template("reset_password.html")
-
-# ==============================
-# REGISTER
-# ==============================
-from werkzeug.security import generate_password_hash
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "").strip()
-        role = request.form.get("role", "user").strip().lower()
-
-        if not name or not email or not password:
-            return render_template("register.html", error="All fields required")
-
-        conn = sqlite3.connect("database/fake_news.db")
-        cursor = conn.cursor()
-
-        # Check if email already exists
-        cursor.execute("SELECT id FROM users WHERE email=?", (email,))
-        existing = cursor.fetchone()
-
-        if existing:
-            conn.close()
-            return render_template("register.html", error="User already exists")
-
-        hashed_password = generate_password_hash(password)
-
-        cursor.execute(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            (name, email, hashed_password, role),
-        )
-
-        conn.commit()
-        conn.close()
-
-        # ✅ REQUIRED ADDITION → Also create Flask-Login user
-        flask_user = User.query.filter_by(email=email).first()
-
-        if not flask_user:
-            new_user = User(
-                email=email,
-                password=hashed_password
-            )
-            db.session.add(new_user)
-            db.session.commit()
-
-        return redirect(url_for("login"))
-
-    return render_template("register.html")
-
-# ==============================
-# USER ROUTES (🔥 IMPORTANT)
-# ==============================
-@app.route("/live-news")
-@login_required
-def live_news():
-    news_api_key = os.getenv("NEWS_API_KEY", "") # Fallback if empty
-    live_articles = []
-    
-    if news_api_key:
-        try:
-            url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={news_api_key}"
-            response = requests.get(url).json()
-            
-            if response.get("status") == "ok":
-                for article in response.get("articles", [])[:10]: # Top 10
-                    title = article.get("title", "")
-                    description = article.get("description", "")
-                    text = f"{title} {description}".strip()
-                    
-                    if not text:
-                        continue
-                        
-                    clean_text = text.lower()
-                    
-                    # Predict using the existing model and vectorizer
-                    try:
-                        try:
-                            prediction = model.predict([clean_text])[0]
-                            if hasattr(model, "predict_proba"):
-                                conf = np.max(model.predict_proba([clean_text])[0])
-                            else:
-                                conf = 0.9
-                        except:
-                            text_vector = vectorizer.transform([clean_text])
-                            prediction = model.predict(text_vector)[0]
-                            if hasattr(model, "predict_proba"):
-                                conf = np.max(model.predict_proba(text_vector)[0])
-                            else:
-                                conf = 0.9
-                                
-                        result_label = "Fake News" if prediction == 1 else "Real News"
-                        
-                        live_articles.append({
-                            "title": title,
-                            "description": description,
-                            "url": article.get("url"),
-                            "source": article.get("source", {}).get("name"),
-                            "prediction": result_label,
-                            "confidence": round(conf * 100, 2)
-                        })
-                    except Exception as e:
-                        print(f"Error predicting article: {e}")
-        except Exception as e:
-            print(f"NewsAPI Fetch Error: {e}")
-            
-    return render_template("live_news.html", live_articles=live_articles)
-
-@app.route("/video-news", methods=["GET", "POST"])
-@login_required
-def video_news():
-    if request.method == "POST":
-        url = request.form.get("video_url")
-        return render_template("video_news.html", url=url)
-    return render_template("video_news.html")
-
-@app.route("/kids-news")
-@login_required
-def kids_news():
-    category = request.args.get("category")
-    fetched_news = []
-    
-    import urllib.parse
-    import xml.etree.ElementTree as ET
-
-    if category:
-        news_api_key = os.getenv("NEWS_API_KEY", "")
-        # Safe queries for kids with recent constraint
-        query_map = {
-            "science": "science space discovery when:2d",
-            "sports": "sports tournament kids when:3d",
-            "creative": "art creativity kids painting when:3d"
-        }
-        query = query_map.get(category, "positive news kids")
-        
-        if news_api_key:
-            try:
-                url = f"https://newsapi.org/v2/everything?q={urllib.parse.quote(query)}&language=en&sortBy=publishedAt&pageSize=5&apiKey={news_api_key}"
-                resp = requests.get(url, timeout=4).json()
-                if resp.get("status") == "ok":
-                    for art in resp.get("articles", []):
-                        fetched_news.append({
-                            "title": art.get("title", "No Title"),
-                            "description": art.get("description", "No description available."),
-                            "url": art.get("url", "#")
-                        })
-            except Exception as e:
-                print("Kids News API fetch error:", e)
-        else:
-            # Fallback open RSS Google News feed
-            try:
-                rss_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}&hl=en-US&gl=US&ceid=US:en"
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0"}
-                resp = requests.get(rss_url, headers=headers, timeout=5)
-                if resp.status_code == 200:
-                    root = ET.fromstring(resp.content)
-                    items = root.findall('./channel/item')
-                    for item in items[:5]:
-                        title = item.find('title').text if item.find('title') is not None else "News Headline"
-                        link = item.find('link').text if item.find('link') is not None else "#"
-                        
-                        if " - " in title:
-                            title = title.rsplit(" - ", 1)[0]
-                            
-                        fetched_news.append({
-                            "title": title,
-                            "description": "Read the full live article directly from the publisher.",
-                            "url": link
-                        })
-            except Exception as e:
-                print("Kids RSS fetch error:", e)
-                
-            # If RSS fails, use final dummy fallback
-            if not fetched_news:
-                titles = [f"Live {category} news temporarily unavailable.", f"Check back later for recent {category} events."]
-                for t in titles:
-                    fetched_news.append({
-                        "title": t,
-                        "description": "Sorry, live api keys are missing and RSS fell back. Please try later.",
-                        "url": "#"
-                    })
-                
-    return render_template("kids_news.html", fetched_news=fetched_news, selected_category=category)
-
 @app.route("/upload", methods=["GET", "POST"])
-@login_required
-def upload_file():
-
-    # 🔴 Important: Default is None
-    prediction = None
-    confidence = None
-
+def upload():
     if request.method == "POST":
-
         file = request.files.get("file")
-
-        # If no file uploaded, just reload page clean
         if not file or file.filename == "":
-            return render_template("upload.html",
-                                   prediction=None,
-                                   confidence=None,
-                                   submitted_text=None)
-
+            return render_template("upload.html")
         if not allowed_file(file.filename):
-            return render_template("upload.html",
-                                   prediction=None,
-                                   confidence=None,
-                                   submitted_text=None)
+            return render_template("upload.html", error="Only JPG/PNG images are supported.")
 
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        file_ext = filename.rsplit(".", 1)[1].lower()
-        extracted_text = ""
-
-        # ================= TXT =================
-        if file_ext == "txt":
-            with open(filepath, "r", encoding="utf-8") as f:
-                extracted_text = f.read()
-
-        # ================= PDF =================
-        elif file_ext == "pdf":
-            import PyPDF2
-            with open(filepath, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
-                    if page.extract_text():
-                        extracted_text += page.extract_text()
-
-        # ================= IMAGE (JPG, PNG) =================
-        elif file_ext in ["jpg", "jpeg", "png"]:
-            if image_fake_detector:
-                from PIL import Image
-                try:
-                    image = Image.open(filepath)
-                    if image.mode != "RGB":
-                        image = image.convert("RGB")
-                    
-                    result = image_fake_detector(image)
-                    pred_label = result[0]['label'].lower()
-                    confidence = round(result[0]['score'] * 100, 2)
-                    
-                    prediction = "Fake News" if "fake" in pred_label else "Real News"
-                    context_message = get_dynamic_message(prediction)
-                    return render_template("upload.html", prediction=prediction, confidence=confidence, submitted_text=f"Image processed: {filename}", context_message=context_message, real_news_context=get_real_news_fact_check(filename))
-                except Exception as e:
-                    print("Image Prediction Error:", e)
-                    return render_template("upload.html", prediction="Error in Image Prediction", confidence=0, submitted_text=f"Failed to process: {filename}")
-            else:
-                return render_template("upload.html", prediction="Image Model Unavailable", confidence=0, submitted_text=filename)
-
-        # ================= VIDEO (MP4) =================
-        elif file_ext in ["mp4", "avi", "mov"]:
-            import speech_recognition as sr
-            try:
-                # Extract Audio from video using moviepy
-                from moviepy.editor import VideoFileClip
-                video = VideoFileClip(filepath)
-                audio_path = filepath.rsplit(".", 1)[0] + ".wav"
-                
-                if video.audio is not None:
-                    video.audio.write_audiofile(audio_path, logger=None)
-                
-                    # Speech to Text
-                    recognizer = sr.Recognizer()
-                    with sr.AudioFile(audio_path) as source:
-                        audio_data = recognizer.record(source)
-                        try:
-                            extracted_text = recognizer.recognize_google(audio_data)
-                        except:
-                            extracted_text = ""
-                            
-                    if os.path.exists(audio_path):
-                        os.remove(audio_path)
-                else:
-                    extracted_text = ""
-                    
-                # Extract a frame for image analysis
-                frame = video.get_frame(1.0) # get frame at 1 sec
-                video.close()
-                
-                # Image model prediction
-                img_prediction = "Real News"
-                img_confidence = 0
-                if image_fake_detector:
-                    from PIL import Image
-                    frame_img = Image.fromarray(frame)
-                    if frame_img.mode != "RGB":
-                        frame_img = frame_img.convert("RGB")
-                    img_result = image_fake_detector(frame_img)
-                    if "fake" in img_result[0]['label'].lower():
-                        img_prediction = "Fake News"
-                    img_confidence = round(img_result[0]['score'] * 100, 2)
-                    
-                # If there's no extracted text, just return the image prediction
-                if not extracted_text.strip():
-                    context_message = get_dynamic_message(img_prediction)
-                    return render_template("upload.html", prediction=img_prediction, confidence=img_confidence, submitted_text=f"Video processed: {filename}", context_message=context_message, real_news_context=get_real_news_fact_check(filename))
-                    
-            except Exception as e:
-                print("Video Processing Error:", e)
-                return render_template("upload.html", prediction="Error in Video Processing", confidence=0, submitted_text=f"Failed to process: {filename}")
-
-        # If no text extracted
-        if not extracted_text.strip():
-            return render_template("upload.html",
-                                   prediction="Unable to extract text",
-                                   confidence=0,
-                                   submitted_text=f"Could not parse text from: {filename}")
-
-        # ================= PREDICTION =================
-
-        prediction_result = model.predict([extracted_text])[0]
-
         try:
-            confidence_score = model.predict_proba([extracted_text])[0]
-            confidence = round(max(confidence_score) * 100, 2)
-        except:
-            confidence = 0
-
-        prediction = "Fake News" if prediction_result == 1 else "Real News"
-        
-        # Combine with video frame prediction if it was a video
-        if file_ext in ["mp4", "avi", "mov"] and 'img_prediction' in locals():
-            if prediction == "Fake News" and img_prediction == "Real News":
-                prediction = "Fake News (Audio)"
-            elif prediction == "Real News" and img_prediction == "Fake News":
-                prediction = "Fake News (Visuals)"
-            elif prediction == "Fake News" and img_prediction == "Fake News":
-                prediction = "Fake News (Audio & Visuals)"
-            elif prediction == "Real News" and img_prediction == "Real News":
-                prediction = "Real News"
+            img = Image.open(filepath)
             
-            confidence = round((confidence + img_confidence) / 2, 2)
+            # Step 1: Vision analysis
+            vision_text = analyze_image_with_vision(img)
+            image_description, extracted_text, search_query, is_social_media, image_warning = parse_vision_response(vision_text)
 
-        search_text = extracted_text if extracted_text.strip() else filename
-        real_news_context = get_real_news_fact_check(search_text)
-        context_message = get_dynamic_message(prediction)
+            content_to_analyze = f"Image Description: {image_description}\nExtracted Text: {extracted_text}"
 
-        return render_template("upload.html",
-                            prediction=prediction,
-                            confidence=confidence,
-                            submitted_text=extracted_text,
-                            real_news_context=real_news_context,
-                            context_message=context_message)
+            if not image_description and (not extracted_text or len(extracted_text) < 10):
+                content_to_analyze = f"Raw Image Analysis:\n{vision_text}"
+                image_description = vision_text[:200]  # Fallback for search query
 
-    # 🔴 GET request always clean
-    return render_template("upload.html",
-                           prediction=None,
-                           confidence=None,
-                           submitted_text=None)
+            # Step 2: Fetch news context
+            if not search_query or search_query.lower() == "none":
+                search_query = extracted_text[:100] if extracted_text and extracted_text.lower() != 'none' else image_description[:100]
+            
+            news_list = fetch_trusted_news(search_query)
+            news_text = "\n".join([
+                f"- {a['title']} (Source: {a['source']}, Trust: {a['trust_score']}%)"
+                for a in news_list
+            ])
 
-@app.route("/history")
-@login_required
-def history():
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM history ORDER BY id DESC")
-    data = cursor.fetchall()
-    conn.close()
-    return render_template("history.html", data=data)
+            # Step 3: AI verification
+            raw_response = ask_gemini_advanced(
+                content_to_analyze, news_text,
+                is_image=True, image_warning=image_warning
+            )
+            result = parse_ai_json(raw_response)
 
+            # Force social media warning into result
+            if is_social_media and not result.get("social_media_warning"):
+                result["social_media_warning"] = image_warning
+
+            youtube_links = get_youtube_links(search_query[:100])
+
+            return render_template(
+                "result.html",
+                result=result,
+                news_context=news_list,
+                youtube_links=youtube_links,
+                submitted_text=f"[Image Analyzed: {filename}]"
+            )
+
+        except Exception as e:
+            print("Image error:", e)
+            return render_template("upload.html", error=f"Failed to analyze image: {str(e)}")
+
+    return render_template("upload.html")
+
+
+# ==============================
+# LIVE NEWS (Aaj Tak Style)
+# ==============================
+@app.route("/live-news")
+def live_news():
+    category = request.args.get("category", "india")
+
+    category_queries = {
+        "india": "India latest news today",
+        "world": "world international news today",
+        "politics": "India politics news today",
+        "sports": "India sports cricket news today",
+        "bollywood": "Bollywood entertainment news today",
+        "technology": "technology AI science news today",
+        "business": "India business economy news today"
+    }
+
+    query = category_queries.get(category, "India latest news today")
+    articles = fetch_google_news(query, max_results=10)
+
+    # Scrolling ticker headlines (top 5)
+    ticker = fetch_google_news("breaking news India", max_results=5)
+
+    return render_template(
+        "live_news.html",
+        live_articles=articles,
+        ticker_headlines=ticker,
+        selected_category=category,
+        categories=list(category_queries.keys())
+    )
+
+
+# ==============================
+# KIDS NEWS (24hr Categories)
+# ==============================
+@app.route("/kids-news")
+def kids_news():
+    category = request.args.get("category", None)
+
+    category_queries = {
+        "science": "science space discovery kids when:1d",
+        "sports": "cricket football sports kids when:1d",
+        "creative": "art music drawing painting kids when:1d"
+    }
+
+    fetched_news = []
+    if category and category in category_queries:
+        query = category_queries[category]
+        fetched_news = fetch_google_news(query, max_results=6)
+
+        # Fallback if no results
+        if not fetched_news:
+            fallback_queries = {
+                "science": "science discovery space 2026",
+                "sports": "cricket football sports today",
+                "creative": "art creative kids India"
+            }
+            fetched_news = fetch_google_news(fallback_queries.get(category, "kids news"), max_results=6)
+
+    return render_template(
+        "kids_news.html",
+        fetched_news=fetched_news,
+        selected_category=category
+    )
+
+
+# ==============================
+# VIDEO NEWS
+# ==============================
+@app.route("/video-news", methods=["GET", "POST"])
+def video_news():
+    if request.method == "POST":
+        transcript = request.form.get("news", "").strip()
+        if transcript:
+            return redirect(url_for("predict"), code=307)
+    return render_template("video_news.html")
+
+
+# ==============================
+# RELATED QUESTION (AJAX)
+# ==============================
+@app.route("/ask-related", methods=["POST"])
+def ask_related():
+    """Handle related question clicks via AJAX."""
+    question = request.form.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "No question provided"}), 400
+
+    news_list = fetch_trusted_news(question)
+    news_text = "\n".join([
+        f"- {a['title']} (Source: {a['source']}, Trust: {a['trust_score']}%)"
+        for a in news_list
+    ])
+
+    raw_response = ask_gemini_advanced(question, news_text)
+    result = parse_ai_json(raw_response)
+    youtube_links = get_youtube_links(question)
+
+    return render_template(
+        "result.html",
+        result=result,
+        news_context=news_list,
+        youtube_links=youtube_links,
+        submitted_text=question
+    )
+
+
+# ==============================
+# STATIC PAGES
+# ==============================
 @app.route("/about")
-@login_required
 def about():
     return render_template("about.html")
 
+@app.route("/history")
+def history():
+    return render_template("history.html")
+
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
+@app.route("/register")
+def register():
+    return render_template("register.html")
+
 @app.route("/logout")
-@login_required
 def logout():
     logout_user()
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
-@app.route("/admin_dashboard")
-@login_required
-def admin_dashboard():
-
-    # Check role from fake_news.db
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT role FROM users WHERE email=?", (current_user.email,))
-    user = cursor.fetchone()
-
-    if not user or user[0].lower() != "admin":
-        conn.close()
-        return redirect(url_for("home"))
-
-    # ============================
-    # TOTAL USERS
-    # ============================
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
-
-    # ============================
-    # TOTAL PREDICTIONS
-    # ============================
-    cursor.execute("SELECT COUNT(*) FROM history")
-    total_predictions = cursor.fetchone()[0]
-
-    # ============================
-    # REAL NEWS COUNT
-    # ============================
-    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Real News'")
-    real_count = cursor.fetchone()[0]
-
-    # ============================
-    # FAKE NEWS COUNT
-    # ============================
-    cursor.execute("SELECT COUNT(*) FROM history WHERE prediction='Fake News'")
-    fake_count = cursor.fetchone()[0]
-
-    # ============================
-    # RECENT ACTIVITY (Last 5)
-    # ============================
-    cursor.execute("""
-        SELECT text, prediction, confidence, created_at
-        FROM history
-        ORDER BY id DESC
-        LIMIT 5
-    """)
-    recent_activity = cursor.fetchall()
-
-    conn.close()
-
-    return render_template(
-        "admin_dashboard.html",
-        total_users=total_users,
-        total_predictions=total_predictions,
-        real_count=real_count,
-        fake_count=fake_count,
-        recent_activity=recent_activity
-    )
 
 # ==============================
 # RUN

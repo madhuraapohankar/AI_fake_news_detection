@@ -3,11 +3,10 @@
 
 <div class="container mt-4">
 
-    <h2 class="text-center mb-4">🧒 Kids News Corner</h2>
-    <p class="kids-subtitle text-center">
-    Simple and safe news for young readers.
-</p>
-    <!-- Add News Analyzer Form -->
+    <h2 class="text-center mb-2 page-title">🧒 Kids News Corner</h2>
+    <p class="kids-subtitle text-center">Fun & safe news updated every 24 hours!</p>
+
+    <!-- NEWS ANALYZER FOR KIDS -->
     <div class="premium-card mb-5 text-center" style="border: 2px dashed #9370DB;">
         <h4 class="page-title mb-4">🔍 Check Your News!</h4>
         <form action="{{ url_for('predict') }}" method="POST">
@@ -15,100 +14,72 @@
             <textarea name="news" placeholder="Paste a story here to see if it's Real or Fake!" required></textarea>
             <button type="submit">🚀 Help me check!</button>
         </form>
-
-        {% if prediction %}
-        <div class="result-box 
-            {% if 'Fake' in prediction %}result-fake
-            {% elif 'Real' in prediction %}result-real
-            {% endif %}">
-            
-            {% if submitted_text %}
-            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 20px; font-style: italic; text-align: left; font-size: 1.1em; border-left: 4px solid rgba(255,255,255,0.2);">
-                "{{ submitted_text }}"
-            </div>
-            {% endif %}
-            
-            <h2>{{ prediction }}</h2>
-            <p>We are <strong>{{ confidence }}%</strong> sure!</p>
-
-            {% if real_news_context %}
-            <div style="background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 8px; text-align: left;">
-                <h4 style="color: #4ade80; font-size: 1.1em; margin-bottom: 5px;">🚨 This is wrong. Here is the real news:</h4>
-                <p style="font-size: 0.95em; margin-bottom: 8px;"><strong><a href="{{ real_news_context.url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ real_news_context.title }}</a></strong></p>
-                <p style="font-size: 0.85em; opacity: 0.9; margin-bottom: 5px;">{{ real_news_context.description }}</p>
-                <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 0;">Source: {{ real_news_context.source }}</p>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
     </div>
 
+    <!-- CATEGORY CARDS -->
     <div class="row mt-4">
-
-        <!-- News Card 1 -->
         <div class="col-md-4">
             <a href="?category=science" style="text-decoration: none; color: inherit;">
-            <div class="card shadow-sm mb-4 about-card" style="cursor: pointer; background: rgba(255,255,255,0.08);">
-                <div class="card-body">
-                    <h5 class="card-title" style="font-weight: bold;">🌍 Fun Science News</h5>
-                    <p class="card-text" style="font-size: 0.95em; line-height: 1.4;">
-                        Scientists discovered a new planet that might support life!
-                    </p>
-                    <span class="badge bg-success mt-2">Safe</span>
+            <div class="card shadow-sm mb-4 about-card kids-category-card {% if selected_category == 'science' %}active-category{% endif %}">
+                <div class="card-body text-center">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🔬</div>
+                    <h5 class="card-title" style="font-weight: bold;">Fun Science</h5>
+                    <p class="card-text">Space, animals, experiments & discoveries!</p>
+                    <span class="badge bg-info">Last 24 Hours</span>
                 </div>
             </div>
             </a>
         </div>
 
-        <!-- News Card 2 -->
         <div class="col-md-4">
             <a href="?category=sports" style="text-decoration: none; color: inherit;">
-            <div class="card shadow-sm mb-4 about-card" style="cursor: pointer; background: rgba(255,255,255,0.08);">
-                <div class="card-body">
-                    <h5 class="card-title" style="font-weight: bold;">⚽ Sports for Kids</h5>
-                    <p class="card-text" style="font-size: 0.95em; line-height: 1.4;">
-                        Young football players win national championship.
-                    </p>
-                    <span class="badge bg-success mt-2">Safe</span>
+            <div class="card shadow-sm mb-4 about-card kids-category-card {% if selected_category == 'sports' %}active-category{% endif %}">
+                <div class="card-body text-center">
+                    <div style="font-size: 48px; margin-bottom: 10px;">⚽</div>
+                    <h5 class="card-title" style="font-weight: bold;">Sports Hero</h5>
+                    <p class="card-text">Cricket, football & sports champions!</p>
+                    <span class="badge bg-info">Last 24 Hours</span>
                 </div>
             </div>
             </a>
         </div>
 
-        <!-- News Card 3 -->
         <div class="col-md-4">
             <a href="?category=creative" style="text-decoration: none; color: inherit;">
-            <div class="card shadow-sm mb-4 about-card" style="cursor: pointer; background: rgba(255,255,255,0.08);">
-                <div class="card-body">
-                    <h5 class="card-title" style="font-weight: bold;">🎨 Creative Corner</h5>
-                    <p class="card-text" style="font-size: 0.95em; line-height: 1.4;">
-                        Kids across India join a nationwide drawing competition.
-                    </p>
-                    <span class="badge bg-success mt-2">Safe</span>
+            <div class="card shadow-sm mb-4 about-card kids-category-card {% if selected_category == 'creative' %}active-category{% endif %}">
+                <div class="card-body text-center">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🎨</div>
+                    <h5 class="card-title" style="font-weight: bold;">Creative Corner</h5>
+                    <p class="card-text">Art, music, drawing & painting!</p>
+                    <span class="badge bg-info">Last 24 Hours</span>
                 </div>
             </div>
             </a>
         </div>
-
     </div>
 
+    <!-- FETCHED NEWS -->
     {% if fetched_news %}
-    <h3 class="mt-5 text-center page-title" style="margin-bottom: 25px;">📰 Latest {{ selected_category | capitalize }} News</h3>
+    <h3 class="mt-5 text-center page-title" style="margin-bottom: 25px;">
+        📰 Latest {{ selected_category | capitalize }} News (Last 24hrs)
+    </h3>
     <div class="row">
         {% for article in fetched_news %}
         <div class="col-md-12 mb-3">
             <a href="{{ article.url }}" target="_blank" style="text-decoration: none; color: inherit;">
-                <div class="premium-card p-4" style="text-align: left; transition: transform 0.2s;">
-                    <h5 style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">{{ article.title }}</h5>
-                    <p style="font-size: 0.95em; opacity: 0.8; margin-bottom: 0;">{{ article.description }}</p>
+                <div class="premium-card p-4 kids-news-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h5 style="color: #60a5fa; font-weight: bold; margin-bottom: 0;">{{ article.title }}</h5>
+                        <span class="source-pill trust-{{ article.trust_level }}">{{ article.source }}</span>
+                    </div>
                 </div>
             </a>
         </div>
         {% endfor %}
     </div>
+    {% elif selected_category %}
+    <p style="text-align: center; opacity: 0.6; margin-top: 30px;">No {{ selected_category }} news found in the last 24 hours. Try another category!</p>
     {% endif %}
-
-    </div>
 
 </div>
 
