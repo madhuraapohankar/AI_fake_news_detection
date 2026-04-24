@@ -1,21 +1,20 @@
-# updated by archita (FINAL ULTRA STABLE + AUTH UPGRADE)
-
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
-import pickle
-import numpy as np
-from datetime import datetime, timedelta
 import os
-from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta
 from functools import wraps
+from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from authlib.integrations.flask_client import OAuth
+import google.generativeai as genai
 from dotenv import load_dotenv
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-import requests
+
+# Load Environment Variables
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 load_dotenv()
 app = Flask(__name__)
@@ -131,35 +130,15 @@ def google_authorize():
     return redirect(url_for("home"))
 
 # ==============================
-# LOAD MODEL
+# LOGIN REQUIRED DECORATOR
 # ==============================
-try:
-    model = pickle.load(open("model/model.pkl", "rb"))
-    vectorizer = pickle.load(open("model/vectorizer.pkl", "rb"))
-except Exception as e:
-    print("Model Load Error:", e)
-    model = None
-    vectorizer = None
-
-try:
-    from transformers import pipeline
-    print("Loading image fake detector...")
-    image_fake_detector = pipeline("image-classification", model="prithivMLmods/Deep-Fake-Detector-Model")
-except Exception as e:
-    print("Image Fake Detector Load Error:", e)
-    image_fake_detector = None
-
-# ==============================
-# UPLOAD CONFIG
-# ==============================
-UPLOAD_FOLDER = "static/uploads"
-ALLOWED_EXTENSIONS = {"pdf", "txt", "png", "jpg", "jpeg", "mp4"}
-
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ==============================
 # DATABASE INIT
@@ -175,6 +154,13 @@ def init_db():
             text TEXT,
             prediction TEXT,
             confidence REAL,
+            verdict TEXT,
+            explanation TEXT,
+            correct_info TEXT,
+            sources TEXT,
+            video_link TEXT,
+            warning TEXT,
+            understanding TEXT,
             created_at TEXT
         )
     """)
@@ -191,6 +177,15 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+# ==============================
+# HELPER FUNCTIONS
+# ==============================
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 init_db()
 
@@ -327,166 +322,154 @@ def get_real_news_fact_check(text):
         "source": "Fact Check Verification Network (Demo Mode)"
     }
 
-def get_dynamic_message(prediction_result):
-    import random
-    if not prediction_result: return ""
-    if "Fake" in prediction_result:
-        return random.choice([
-            "🚨 This is wrong. Here is the real news:",
-            "⚠️ Warning: This claim is misleading. The verified facts are:",
-            "🛑 Fake News Detected. See the actual story below:"
-        ])
-    else:
-        return random.choice([
-            "✅ Verified! This news appears authentic. See verified records:",
-            "✅ The facts in this story check out. See original source:",
-            "✅ This claim is supported by reliable sources:"
-        ])
-
-# ==============================
-# PREDICT
-# ==============================
-@app.route("/predict", methods=["GET", "POST"])
-@login_required
-def predict():
-    if request.method == "GET":
-        return redirect(url_for("news_analyzer"))
-
-    source_page = request.form.get("source_page", "home")
-    text = request.form.get("news") or request.form.get("news_text")
-
-    if not text or not text.strip():
-        return redirect(url_for("home"))
-
-    if model is None or vectorizer is None:
-        return render_template(
-            "index.html",
-            prediction="Model not loaded",
-            confidence=0
-        )
-
-    try:
-        clean_text = str(text).strip().lower()
-
-        try:
-            # Pipeline case
-            prediction = model.predict([clean_text])[0]
-
-            if hasattr(model, "predict_proba"):
-                confidence = round(
-                    np.max(model.predict_proba([clean_text])[0]) * 100, 2
-                )
-            else:
-                confidence = 90.0
-
-        except Exception:
-            # Vectorizer + model case
-            text_vector = vectorizer.transform([clean_text])
-            prediction = model.predict(text_vector)[0]
-
-            if hasattr(model, "predict_proba"):
-                confidence = round(
-                    np.max(model.predict_proba(text_vector)[0]) * 100, 2
-                )
-            else:
-                confidence = 90.0
-
-        result = "Fake News" if prediction == 1 else "Real News"
-        
-        real_news_context = get_real_news_fact_check(clean_text)
-        context_message = get_dynamic_message(result)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-
-        return render_template(
-            "index.html",
-            prediction="Error in prediction",
-            confidence=0
-        )
-
-    # ==============================
-    # SAVE HISTORY
-    # ==============================
-    conn = sqlite3.connect("database/fake_news.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO history (text, prediction, confidence, created_at)
-        VALUES (?, ?, ?, ?)
-    """, (
-        text,
-        result,
-        confidence,
-        datetime.now().strftime("%Y-%m-%d %H:%M")
-    ))
-
-    conn.commit()
     conn.close()
+    return redirect(url_for("login"))
 
-    # ==============================
-    # MODEL META INFO (CORRECT PLACE)
-    # ==============================
-    algorithm_name = type(model).__name__
-    dataset_size = 50000
-    model_accuracy = 94.2
-
-    # ==============================
-    # RETURN TEMPLATE
-    # ==============================
-    page_map = {
-        "home": "index.html",
-        "live_news": "live_news.html",
-        "video_news": "video_news.html",
-        "kids_news": "kids_news.html",
-    }
-
-    template_name = page_map.get(source_page, "index.html")
-
-    return render_template(
-        template_name,
-        prediction=result,
-        confidence=confidence,
-        accuracy=model_accuracy,
-        dataset_size=dataset_size,
-        algorithm=algorithm_name,
-        submitted_text=text,
-        real_news_context=real_news_context,
-        context_message=context_message
-    )
 # ==============================
-# Forget Password
+# FORGOT PASSWORD (SECURE)
 # ==============================
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
 
     if request.method == "POST":
-        email = request.form.get("email")
+        email = request.form.get("email", "").strip()
 
-        token = serializer.dumps(email, salt="password-reset-salt")
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
+        conn.close()
 
-        reset_url = url_for("reset_password", token=token, _external=True)
+        if user:
+            token = serializer.dumps(email, salt="password-reset-salt")
+            reset_link = url_for("reset_password", token=token, _external=True)
 
-        msg = Message(
-            subject="Password Reset Request",
-            recipients=[email]
+            msg = Message(
+                "Password Reset",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+            msg.body = f"Click to reset password:\n{reset_link}"
+            mail.send(msg)
+
+        return render_template(
+            "forgot_password.html",
+            message="If this email exists, reset instructions sent."
         )
 
-        msg.body = f"""
-Click the link below to reset your password:
-
-{reset_url}
-
-If you did not request this, ignore this email.
-"""
-
-        mail.send(msg)
-
-        return render_template("forgot_password.html",
-                               message="Reset link sent. Please check your email.")
-
     return render_template("forgot_password.html")
+
+# ==============================
+# RESET PASSWORD
+# ==============================
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+
+    try:
+        email = serializer.loads(
+            token,
+            salt="password-reset-salt",
+            max_age=3600
+        )
+    except:
+        return "Reset link expired"
+
+    if request.method == "POST":
+        new_password = request.form.get("password").strip()
+
+        conn = sqlite3.connect("database/fake_news.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET password=? WHERE email=?",
+            (new_password, email)
+        )
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html")
+
+# ==============================
+# LOGOUT
+# ==============================
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+# ==============================
+# ADMIN DASHBOARD
+# ==============================
+@app.route("/admin-dashboard")
+@login_required
+def admin_dashboard():
+
+    if session.get("role") != "admin":
+        return redirect(url_for("home"))
+
+    conn = sqlite3.connect("database/fake_news.db")
+    cursor = conn.cursor()
+
+    # Total users
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+
+    # Total predictions
+    cursor.execute("SELECT COUNT(*) FROM history")
+    total_predictions = cursor.fetchone()[0]
+
+    # Recent 5 predictions (Simplified Verdict extraction)
+    cursor.execute("""
+        SELECT text, verdict, created_at 
+        FROM history 
+        ORDER BY id DESC 
+        LIMIT 5
+    """)
+    recent_activity = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        total_users=total_users,
+        total_predictions=total_predictions,
+        recent_activity=recent_activity
+    )
+
+# ==============================
+# USER ROUTES
+# ==============================
+# ==============================
+# AI INTELLIGENCE
+# ==============================
+def ask_gemini(user_input):
+    prompt = f"""
+You are a factual AI assistant.
+
+User query: {user_input}
+
+Rules:
+- If it is a known fact → say REAL
+- If clearly false → say FAKE
+- If unsure → say NOT VERIFIED
+- Do not guess.
+
+Format:
+Verdict:
+Explanation:
+Correct Information:
+"""
+    return model.generate_content(prompt).text
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    user_input = request.form.get('news') or request.form.get('news_text')
+    if not user_input:
+        return redirect(url_for('home'))
+
+    result = ask_gemini(user_input)
+    return render_template('result.html', result=result)
 
 # ==============================
 # RESET PASSWORD

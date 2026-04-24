@@ -192,7 +192,197 @@ button:active {
     box-shadow: inset 3px 4px 8px rgba(0,0,0,0.4), 0 2px 5px rgba(6,182,212,0.3);
 }
 
-/* ================= RESULT BOX ================= */
+/* ================= AI RESULT CARD ================= */
+.result-card-ai {
+    margin-top: 30px;
+    padding: 25px;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 15px 45px rgba(0,0,0,0.4);
+    animation: fadeInSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    color: #f1f5f9;
+}
+
+@keyframes fadeInSlideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.verdict-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.verdict-label {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.verdict-text {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.fake-verdict .verdict-text { color: #f87171; }
+.real-verdict .verdict-text { color: #4ade80; }
+.misleading-verdict .verdict-text { color: #fbbf24; }
+
+.confidence-gauge-container {
+    margin-bottom: 25px;
+}
+
+.confidence-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.conf-val {
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+.progress-bar-premium {
+    height: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 5px;
+    transition: width 1s ease-out;
+}
+
+.ai-section {
+    margin-bottom: 20px;
+}
+
+.ai-section h4 {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-section p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #cbd5e1;
+}
+
+.info-box {
+    background: rgba(34,197,94,0.1);
+    padding: 15px;
+    border-radius: 12px;
+    border-left: 4px solid #22c55e;
+}
+
+.sources-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.source-pill {
+    background: rgba(255,255,255,0.08);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.video-container-premium {
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.live-badge {
+    background: #ef4444;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    animation: pulse 1.5s infinite;
+}
+
+.highlight-box {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.highlight-box h4 {
+    color: #22c55e;
+    margin-top: 0;
+}
+
+.understanding-box {
+    background: rgba(56, 189, 248, 0.1);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding: 12px 20px;
+    margin: -25px -25px 20px -25px; /* Offset parent padding */
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.understanding-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #38bdf8;
+}
+
+.understanding-text {
+    font-size: 14px;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.warning-box {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #fbbf24;
+}
+
+.warning-icon {
+    font-size: 20px;
+}
+
+.warning-box p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ================= RESULT BOX (OLD - KEEP FOR COMPAT) ================= */
 .result-box {
     margin-top: 20px;
     padding: 18px;
@@ -200,23 +390,6 @@ button:active {
     animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     box-shadow: inset 1px 1px 3px rgba(255,255,255,0.3), 0 10px 25px rgba(0,0,0,0.35);
     transform: translateZ(20px);
-}
-
-.result-real {
-    background: rgba(34,197,94,0.15);
-    border: 1px solid rgba(34,197,94,0.35);
-    box-shadow: inset 1px 1px 4px rgba(255,255,255,0.3), inset -2px -2px 6px rgba(0,100,0,0.3), 0 12px 25px rgba(34,197,94,0.3);
-}
-
-.result-fake {
-    background: rgba(239,68,68,0.15);
-    border: 1px solid rgba(239,68,68,0.35);
-    box-shadow: inset 1px 1px 4px rgba(255,255,255,0.3), inset -2px -2px 6px rgba(139,0,0,0.3), 0 12px 25px rgba(239,68,68,0.3);
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ================= FOOTER ================= */

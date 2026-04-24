@@ -16,12 +16,11 @@
         <div style="overflow-x: auto;">
             <table class="table" style="color: white; text-align: left; width: 100%;">
                 <thead>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-                        <th style="padding: 10px;">ID</th>
-                        <th style="padding: 10px;">Submitted Text</th>
-                        <th style="padding: 10px;">Prediction</th>
-                        <th style="padding: 10px;">Confidence</th>
-                        <th style="padding: 10px;">Date & Time</th>
+                    <tr>
+                        <th>ID</th>
+                        <th>Verdict</th>
+                        <th>Confidence</th>
+                        <th>Date</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,7 +42,25 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px;">No prediction history available yet.</td>
+                        <td>{{ row[0] }}</td>
+
+                        <td>
+                            <span class="prediction-badge 
+                                {% if 'REAL' in row[4] %}real-badge{% elif 'FAKE' in row[4] %}fake-badge{% else %}misleading-badge{% endif %}">
+                                {{ row[4] }}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill"
+                                     style="width: {{ row[3] }}%;">
+                                </div>
+                            </div>
+                            <small>{{ row[3] }}%</small>
+                        </td>
+
+                        <td>{{ row[9] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

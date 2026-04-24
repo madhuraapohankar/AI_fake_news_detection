@@ -10,9 +10,9 @@
         </a>
     </div>
 
-    <h1 class="title">🧠 Analyze News Authenticity</h1>
+    <h1 class="title">🧠 AI News Verification</h1>
     <p class="subtitle">
-        Paste any news article below and our AI will detect whether it is real or fake.
+        Enter any news article or claim below to verify its authenticity with AI.
     </p>
 
     <form action="{{ url_for('predict') }}" method="POST">
@@ -34,50 +34,7 @@
     <!-- Loader -->
     <div id="loader" class="loader hidden"></div>
 
-    {% if prediction %}
-    <div class="result-box
-        {% if 'Fake' in prediction %} result-fake
-        {% elif 'Real' in prediction %} result-real
-        {% endif %}">
-
-        {% if submitted_text %}
-        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-style: italic; font-size: 0.95em; border-left: 4px solid rgba(255,255,255,0.2); word-wrap: break-word; text-align: left;">
-            "{{ submitted_text }}"
-        </div>
-        {% endif %}
-
-        <h2 class="prediction-text">{{ prediction }}</h2>
-
-        <div class="confidence-wrapper">
-            <span>Confidence</span>
-
-            <div class="confidence-bar">
-                <div class="confidence-fill"
-                     style="width: {{ confidence|default(0) }}%">
-                </div>
-            </div>
-
-            <span class="confidence-value">{{ confidence }}%</span>
-        </div>
-        <hr style="margin-top:20px;">
-
-        {% if real_news_context and context_message %}
-        <div style="background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 8px; text-align: left; transition: transform 0.3s ease;">
-            <h4 style="color: #4ade80; font-size: 1.1em; margin-bottom: 5px;">{{ context_message }}</h4>
-            <p style="font-size: 0.95em; margin-bottom: 8px;"><strong><a href="{{ real_news_context.url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ real_news_context.title }}</a></strong></p>
-            <p style="font-size: 0.85em; opacity: 0.9; margin-bottom: 5px;">{{ real_news_context.description }}</p>
-            <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 0;">Source: {{ real_news_context.source }}</p>
-        </div>
-        {% endif %}
-
-        <div style="margin-top:10px; font-size:14px; opacity:0.8;">
-            <p><strong>Model Accuracy:</strong> {{ accuracy }}%</p>
-            <p><strong>Dataset Size:</strong> {{ dataset_size }} articles</p>
-            <p><strong>Algorithm:</strong> {{ algorithm }}</p>
-        </div>
-
-    </div>
-    {% endif %}
+    <!-- Legacy result cards removed -->
 
 </div>
 

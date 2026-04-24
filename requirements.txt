@@ -2,12 +2,6 @@ flask
 pandas
 numpy
 scikit-learn
+google-generativeai
+python-dotenv
 requests
-transformers
-torch
-torchvision
-Pillow
-SpeechRecognition
-moviepy
-pydub
-PyPDF2
