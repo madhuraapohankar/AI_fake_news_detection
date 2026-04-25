@@ -47,8 +47,9 @@
 
             {% if current_user.is_authenticated %}
 
-                <!-- Admin Panel (if needed later, you can reconnect role properly) -->
-                <!-- <a href="/admin_dashboard">Admin Panel</a> -->
+                {% if current_user.role == 'admin' %}
+                    <a href="/admin_dashboard">Admin Panel</a>
+                {% endif %}
 
                 <a href="/about">About</a>
 

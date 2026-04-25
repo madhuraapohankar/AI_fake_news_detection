@@ -39,6 +39,17 @@ def init_db():
                 role TEXT DEFAULT 'user'
             )
         ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                input_text TEXT,
+                verdict TEXT,
+                confidence INTEGER,
+                date TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
         # Pre-seed accounts
         c.execute("SELECT * FROM users WHERE email='admin@fakenews.com'")
         if not c.fetchone():
@@ -57,6 +68,17 @@ def get_db_connection():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     return conn
+
+def save_prediction(user_id, input_text, verdict, confidence):
+    try:
+        with sqlite3.connect("database.db") as conn:
+            conn.execute(
+                "INSERT INTO predictions (user_id, input_text, verdict, confidence, date) VALUES (?, ?, ?, ?, ?)",
+                (user_id, input_text, verdict, confidence, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"Error saving prediction: {e}")
 
 # ==============================
 # FLASK-LOGIN & OAUTH
@@ -527,6 +549,9 @@ def predict():
     # YouTube proof links
     youtube_links = get_youtube_links(user_input)
 
+    # Save to history
+    save_prediction(current_user.id, user_input, result['verdict'], result['confidence'])
+
     return render_template(
         "result.html",
         result=result,
@@ -588,6 +613,9 @@ def upload():
                 result["social_media_warning"] = image_warning
 
             youtube_links = get_youtube_links(search_query[:100])
+
+            # Save to history
+            save_prediction(current_user.id, f"[Image] {filename}", result['verdict'], result['confidence'])
 
             return render_template(
                 "result.html",
@@ -725,7 +753,27 @@ def about():
 @app.route("/history")
 @login_required
 def history():
-    return render_template("history.html")
+    conn = get_db_connection()
+    data = conn.execute("SELECT id, input_text, verdict, confidence, date FROM predictions WHERE user_id = ? ORDER BY date DESC", (current_user.id,)).fetchall()
+    conn.close()
+    return render_template("history.html", data=data)
+
+@app.route("/admin_dashboard")
+@login_required
+def admin_dashboard():
+    if current_user.role != 'admin':
+        return redirect(url_for('home'))
+    
+    conn = get_db_connection()
+    total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    total_predictions = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+    recent_activity = conn.execute("SELECT input_text, verdict, date FROM predictions ORDER BY date DESC LIMIT 10").fetchall()
+    conn.close()
+    
+    return render_template("admin_dashboard.html", 
+                           total_users=total_users, 
+                           total_predictions=total_predictions, 
+                           recent_activity=recent_activity)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
