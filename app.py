@@ -775,14 +775,35 @@ def admin_dashboard():
         return redirect(url_for('home'))
     
     conn = get_db_connection()
+    
+    # Basic Stats
     total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     total_predictions = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+    
+    # Verdict Distribution (for Pie Chart)
+    verdicts = conn.execute("SELECT verdict, COUNT(*) FROM predictions GROUP BY verdict").fetchall()
+    verdict_data = {v['verdict']: v['COUNT(*)'] for v in verdicts}
+    
+    # Daily Stats (for Line Chart) - Last 7 days
+    daily = conn.execute("""
+        SELECT date(date) as day, COUNT(*) as count 
+        FROM predictions 
+        WHERE date >= date('now', '-7 days')
+        GROUP BY day 
+        ORDER BY day ASC
+    """).fetchall()
+    daily_labels = [d['day'] for d in daily]
+    daily_counts = [d['count'] for d in daily]
+    
     recent_activity = conn.execute("SELECT input_text, verdict, date FROM predictions ORDER BY date DESC LIMIT 10").fetchall()
     conn.close()
     
     return render_template("admin_dashboard.html", 
                            total_users=total_users, 
                            total_predictions=total_predictions, 
+                           verdict_data=verdict_data,
+                           daily_labels=daily_labels,
+                           daily_counts=daily_counts,
                            recent_activity=recent_activity)
 
 @app.route("/login", methods=["GET", "POST"])
