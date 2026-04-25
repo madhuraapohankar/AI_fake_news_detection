@@ -6,8 +6,11 @@
 
 <style>
     :root {
-        --glass: rgba(255, 255, 255, 0.05);
-        --glass-border: rgba(255, 255, 255, 0.1);
+        --dash-bg: rgba(255, 255, 255, 0.05);
+        --dash-border: rgba(255, 255, 255, 0.1);
+        --dash-text: #fff;
+        --dash-subtext: #94a3b8;
+        --dash-title: linear-gradient(to right, #fff, #94a3b8);
         --primary: #6366f1;
         --secondary: #a855f7;
         --success: #22c55e;
@@ -15,11 +18,20 @@
         --warning: #f59e0b;
     }
 
+    body.light-mode {
+        --dash-bg: rgba(0, 0, 0, 0.03);
+        --dash-border: rgba(0, 0, 0, 0.08);
+        --dash-text: #1e293b;
+        --dash-subtext: #64748b;
+        --dash-title: linear-gradient(to right, #1e293b, #475569);
+    }
+
     .admin-container {
         padding: 30px;
         max-width: 1400px;
         margin: 0 auto;
         animation: fadeIn 0.8s ease-out;
+        color: var(--dash-text);
     }
 
     @keyframes fadeIn {
@@ -35,7 +47,7 @@
     .admin-header h1 {
         font-size: 2.5rem;
         font-weight: 700;
-        background: linear-gradient(to right, #fff, #94a3b8);
+        background: var(--dash-title);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
@@ -49,25 +61,25 @@
     }
 
     .stat-card {
-        background: var(--glass);
+        background: var(--dash-bg);
         backdrop-filter: blur(10px);
-        border: 1px solid var(--glass-border);
+        border: 1px solid var(--dash-border);
         border-radius: 20px;
         padding: 25px;
         position: relative;
         overflow: hidden;
-        transition: transform 0.3s ease;
+        transition: transform 0.3s ease, background 0.3s ease;
     }
 
     .stat-card:hover {
         transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--dash-border);
     }
 
     .stat-card h3 {
         font-size: 0.9rem;
         text-transform: uppercase;
-        color: #94a3b8;
+        color: var(--dash-subtext);
         letter-spacing: 1px;
         margin-bottom: 10px;
     }
@@ -75,7 +87,7 @@
     .stat-card .value {
         font-size: 2rem;
         font-weight: 700;
-        color: #fff;
+        color: var(--dash-text);
     }
 
     .stat-card .icon {
@@ -84,6 +96,7 @@
         bottom: 20px;
         font-size: 3rem;
         opacity: 0.1;
+        color: var(--dash-text);
     }
 
     /* Charts Row */
@@ -95,9 +108,9 @@
     }
 
     .chart-box {
-        background: var(--glass);
+        background: var(--dash-bg);
         backdrop-filter: blur(10px);
-        border: 1px solid var(--glass-border);
+        border: 1px solid var(--dash-border);
         border-radius: 20px;
         padding: 25px;
     }
@@ -105,14 +118,14 @@
     .chart-box h4 {
         margin-bottom: 20px;
         font-size: 1.1rem;
-        color: #cbd5e1;
+        color: var(--dash-subtext);
     }
 
     /* Table Styling */
     .activity-box {
-        background: var(--glass);
+        background: var(--dash-bg);
         backdrop-filter: blur(10px);
-        border: 1px solid var(--glass-border);
+        border: 1px solid var(--dash-border);
         border-radius: 20px;
         padding: 25px;
         overflow-x: auto;
@@ -127,16 +140,16 @@
     th {
         text-align: left;
         padding: 15px;
-        color: #94a3b8;
+        color: var(--dash-subtext);
         font-size: 0.85rem;
         text-transform: uppercase;
-        border-bottom: 1px solid var(--glass-border);
+        border-bottom: 1px solid var(--dash-border);
     }
 
     td {
         padding: 15px;
-        color: #e2e8f0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: var(--dash-text);
+        border-bottom: 1px solid var(--dash-border);
         font-size: 0.95rem;
     }
 
@@ -247,8 +260,15 @@
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
-                x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(128, 128, 128, 0.15)' }, 
+                    ticks: { color: '#64748b' } 
+                },
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { color: '#64748b' } 
+                }
             }
         }
     });
@@ -272,7 +292,7 @@
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: '#94a3b8', padding: 20, font: { size: 12 } }
+                    labels: { color: '#64748b', padding: 20, font: { size: 12 } }
                 }
             },
             cutout: '70%'
