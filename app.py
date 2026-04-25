@@ -10,8 +10,10 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import google.generativeai as genai
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from PIL import Image
-
+import sqlite3
+from authlib.integrations.flask_client import OAuth
 # ==============================
 # LOAD ENV
 # ==============================
@@ -23,19 +25,69 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key_123")
 
 # ==============================
-# FLASK-LOGIN SETUP
+# DATABASE & OAUTH SETUP
+# ==============================
+def init_db():
+    with sqlite3.connect("database.db") as conn:
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT DEFAULT 'user'
+            )
+        ''')
+        # Pre-seed accounts
+        c.execute("SELECT * FROM users WHERE email='admin@fakenews.com'")
+        if not c.fetchone():
+            c.execute("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+                      ("Admin", "admin@fakenews.com", generate_password_hash("admin123"), "admin"))
+            
+        c.execute("SELECT * FROM users WHERE email='user@fakenews.com'")
+        if not c.fetchone():
+            c.execute("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+                      ("Test User", "user@fakenews.com", generate_password_hash("user123"), "user"))
+        conn.commit()
+
+init_db()
+
+def get_db_connection():
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# ==============================
+# FLASK-LOGIN & OAUTH
 # ==============================
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv("CLIENT_ID"),
+    client_secret=os.getenv("CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
 class User(UserMixin):
-    def __init__(self, id, email=None):
+    def __init__(self, id, name, email, role):
         self.id = id
-        self.email = email or id
+        self.name = name
+        self.email = email
+        self.role = role
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User(user_id)
+    conn = get_db_connection()
+    user_data = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    if user_data:
+        return User(id=user_data['id'], name=user_data['name'], email=user_data['email'], role=user_data['role'])
+    return None
 
 # ==============================
 # FILE UPLOAD CONFIG
@@ -437,11 +489,13 @@ def parse_vision_response(vision_text):
 # ROUTES
 # ==============================
 @app.route("/")
+@login_required
 def home():
     return render_template("dashboard.html")
 
 
 @app.route("/news-analyzer")
+@login_required
 def news_analyzer():
     return render_template("index.html")
 
@@ -450,6 +504,7 @@ def news_analyzer():
 # TEXT PREDICTION (MAIN AI)
 # ==============================
 @app.route("/predict", methods=["GET", "POST"])
+@login_required
 def predict():
     if request.method == "GET":
         return redirect(url_for("home"))
@@ -485,6 +540,7 @@ def predict():
 # IMAGE UPLOAD
 # ==============================
 @app.route("/upload", methods=["GET", "POST"])
+@login_required
 def upload():
     if request.method == "POST":
         file = request.files.get("file")
@@ -552,6 +608,7 @@ def upload():
 # LIVE NEWS (Aaj Tak Style)
 # ==============================
 @app.route("/live-news")
+@login_required
 def live_news():
     category = request.args.get("category", "india")
 
@@ -584,6 +641,7 @@ def live_news():
 # KIDS NEWS (24hr Categories)
 # ==============================
 @app.route("/kids-news")
+@login_required
 def kids_news():
     category = request.args.get("category", None)
 
@@ -618,6 +676,7 @@ def kids_news():
 # VIDEO NEWS
 # ==============================
 @app.route("/video-news", methods=["GET", "POST"])
+@login_required
 def video_news():
     if request.method == "POST":
         transcript = request.form.get("news", "").strip()
@@ -630,6 +689,7 @@ def video_news():
 # RELATED QUESTION (AJAX)
 # ==============================
 @app.route("/ask-related", methods=["POST"])
+@login_required
 def ask_related():
     """Handle related question clicks via AJAX."""
     question = request.form.get("question", "").strip()
@@ -663,16 +723,100 @@ def about():
     return render_template("about.html")
 
 @app.route("/history")
+@login_required
 def history():
     return render_template("history.html")
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        remember = "remember" in request.form
+        
+        conn = get_db_connection()
+        user_data = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        conn.close()
+        
+        if user_data and check_password_hash(user_data['password'], password):
+            user = User(id=user_data['id'], name=user_data['name'], email=user_data['email'], role=user_data['role'])
+            login_user(user, remember=remember)
+            return redirect(url_for("home"))
+        else:
+            return render_template("login.html", error="Invalid email or password")
+            
     return render_template("login.html")
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        role = request.form.get("role", "user")
+        
+        conn = get_db_connection()
+        user_data = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        
+        if user_data:
+            conn.close()
+            return render_template("register.html", error="Email address already exists")
+            
+        hashed_password = generate_password_hash(password)
+        cursor = conn.execute("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", (name, email, hashed_password, role))
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
+        
+        user = User(id=user_id, name=name, email=email, role=role)
+        login_user(user)
+        return redirect(url_for("home"))
+        
     return render_template("register.html")
+
+@app.route("/forgot-password")
+def forgot_password():
+    return "Forgot Password functionality coming soon!"
+
+@app.route("/google-login")
+def google_login():
+    redirect_uri = url_for('google_authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route("/google/authorize")
+def google_authorize():
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get('userinfo')
+        if not user_info:
+            user_info = google.userinfo()
+    except Exception as e:
+        print(f"Google Auth Error: {e}")
+        return redirect(url_for('login'))
+        
+    email = user_info.get("email")
+    name = user_info.get("name", "Google User")
+    
+    conn = get_db_connection()
+    user_data = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    
+    if not user_data:
+        # Create a new user with a random password since they use Google
+        cursor = conn.execute("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", 
+                              (name, email, generate_password_hash(os.urandom(24).hex()), "user"))
+        conn.commit()
+        user_id = cursor.lastrowid
+        role = "user"
+    else:
+        user_id = user_data['id']
+        name = user_data['name']
+        role = user_data['role']
+        
+    conn.close()
+    
+    user = User(id=user_id, name=name, email=email, role=role)
+    login_user(user)
+    return redirect(url_for("home"))
 
 @app.route("/logout")
 def logout():

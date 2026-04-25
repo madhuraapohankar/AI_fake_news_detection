@@ -5,3 +5,5 @@ scikit-learn
 google-generativeai
 python-dotenv
 requests
+Flask-Login
+Authlib

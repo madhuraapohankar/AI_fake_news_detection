@@ -42,25 +42,9 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td>{{ row[0] }}</td>
-
-                        <td>
-                            <span class="prediction-badge 
-                                {% if 'REAL' in row[4] %}real-badge{% elif 'FAKE' in row[4] %}fake-badge{% else %}misleading-badge{% endif %}">
-                                {{ row[4] }}
-                            </span>
+                        <td colspan="4" style="text-align: center; padding: 20px; color: #a1a1aa;">
+                            No prediction history found. Start analyzing news to see your history here!
                         </td>
-
-                        <td>
-                            <div class="confidence-bar">
-                                <div class="confidence-fill"
-                                     style="width: {{ row[3] }}%;">
-                                </div>
-                            </div>
-                            <small>{{ row[3] }}%</small>
-                        </td>
-
-                        <td>{{ row[9] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
