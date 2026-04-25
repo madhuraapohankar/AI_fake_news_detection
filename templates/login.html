@@ -31,7 +31,10 @@
             </div>
 
             <div class="input-group password-wrapper">
-                <input type="password" name="password" id="password" placeholder="Password" required>
+                <input type="password" name="password" id="password" placeholder="Password" 
+                       title="Password must be at least 8 characters long, contain at least one uppercase letter and one special character."
+                       pattern="(?=.*[A-Z])(?=.*[!@#$%^&*()\-=_+\[\]{};':&quot;\\|,.<>\/?]).{8,}"
+                       required>
                 <span onclick="togglePassword()">👁</span>
             </div>
 

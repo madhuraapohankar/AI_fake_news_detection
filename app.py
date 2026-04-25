@@ -80,6 +80,16 @@ def save_prediction(user_id, input_text, verdict, confidence):
     except Exception as e:
         print(f"Error saving prediction: {e}")
 
+def validate_password(password):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter."
+    special_chars = "!@#$%^&*()-_=+[{]};:'\",<.>/?\\|"
+    if not any(c in special_chars for c in password):
+        return False, "Password must contain at least one special character."
+    return True, ""
+
 # ==============================
 # FLASK-LOGIN & OAUTH
 # ==============================
@@ -803,6 +813,11 @@ def register():
         password = request.form.get("password")
         role = request.form.get("role", "user")
         
+        # Validate password complexity
+        is_valid, error_msg = validate_password(password)
+        if not is_valid:
+            return render_template("register.html", error=error_msg)
+
         conn = get_db_connection()
         user_data = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         

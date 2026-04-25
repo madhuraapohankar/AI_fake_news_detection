@@ -91,7 +91,10 @@
 
         <input type="email" name="email" placeholder="Email Address" required>
 
-        <input type="password" name="password" placeholder="Password" required>
+        <input type="password" name="password" placeholder="Password" 
+               title="Password must be at least 8 characters long, contain at least one uppercase letter and one special character."
+               pattern="(?=.*[A-Z])(?=.*[!@#$%^&*()\-=_+\[\]{};':&quot;\\|,.<>\/?]).{8,}"
+               required>
 
         <select name="role">
             <option value="user">User</option>
